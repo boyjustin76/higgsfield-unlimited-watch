@@ -1,0 +1,162 @@
+{
+  "checked_date": "2026-11-07",
+  "method": "Public GitHub metadata; README/source reviews described in competitors.md; no competitor executed.",
+  "repositories": [
+    {
+      "full_name": "Ali-Homsi/higgsfield-unlimited-skill",
+      "html_url": "https://github.com/Ali-Homsi/higgsfield-unlimited-skill",
+      "description": "Higgsfield Unlimited — browser-driven batch image/video generation skill",
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "updated_at": "2026-07-23T01:24:18Z",
+      "pushed_at": "2026-07-23T01:24:14Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": null
+    },
+    {
+      "full_name": "nukIeer/higgsfield-unlimited-mcp",
+      "html_url": "https://github.com/nukIeer/higgsfield-unlimited-mcp",
+      "description": "Complete MCP server for Higgsfield AI in unlimited mode — all image/video/audio models",
+      "stargazers_count": 17,
+      "forks_count": 3,
+      "updated_at": "2026-11-01T16:36:38Z",
+      "pushed_at": "2026-07-22T20:47:58Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "MIT"
+    },
+    {
+      "full_name": "WinstonJunCong/cgl-higgsfield",
+      "html_url": "https://github.com/WinstonJunCong/cgl-higgsfield",
+      "description": "MCP server for Higgsfield AI in unlimited mode — 31 tools, 63 models, Clerk JWT auth, async queue",
+      "stargazers_count": 2,
+      "forks_count": 0,
+      "updated_at": "2026-11-05T19:15:21Z",
+      "pushed_at": "2026-05-15T08:54:48Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "MIT"
+    },
+    {
+      "full_name": "build-with-bala/higgs-unlim",
+      "html_url": "https://github.com/build-with-bala/higgs-unlim",
+      "description": null,
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "updated_at": "2026-10-28T01:29:39Z",
+      "pushed_at": "2026-10-28T01:29:35Z",
+      "archived": false,
+      "default_branch": "master",
+      "license": null
+    },
+    {
+      "full_name": "FarisHijazi/higgsfield-web-api",
+      "html_url": "https://github.com/FarisHijazi/higgsfield-web-api",
+      "description": "Unofficial headless CLI + HTTP API over higgsfield.ai's web app — exposes the free 'unlimited' image generation the official CLI doesn't, plus reference/img2img uploads",
+      "stargazers_count": 10,
+      "forks_count": 2,
+      "updated_at": "2026-10-27T23:54:09Z",
+      "pushed_at": "2026-10-27T23:54:05Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": null
+    },
+    {
+      "full_name": "higgsfield-ai/cli",
+      "html_url": "https://github.com/higgsfield-ai/cli",
+      "description": "Higgsfield CLI",
+      "stargazers_count": 698,
+      "forks_count": 148,
+      "updated_at": "2026-11-05T23:45:18Z",
+      "pushed_at": "2026-10-22T12:48:32Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "MIT"
+    },
+    {
+      "full_name": "higgsfield-ai/skills",
+      "html_url": "https://github.com/higgsfield-ai/skills",
+      "description": null,
+      "stargazers_count": 1909,
+      "forks_count": 354,
+      "updated_at": "2026-11-07T08:47:49Z",
+      "pushed_at": "2026-11-05T01:43:26Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "MIT"
+    },
+    {
+      "full_name": "pixelab-ch/higgsfield-skills",
+      "html_url": "https://github.com/pixelab-ch/higgsfield-skills",
+      "description": "Model-aware Claude Agent Skills for AI image & video generation on Higgsfield — 15 creative skills with opt-in MCP generation. Reworked from beshuaxian/higgsfield-seedance2-jineng.",
+      "stargazers_count": 12,
+      "forks_count": 1,
+      "updated_at": "2026-11-06T20:50:52Z",
+      "pushed_at": "2026-05-25T17:42:01Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "MIT"
+    },
+    {
+      "full_name": "robonuggets/higgsfield-skill",
+      "html_url": "https://github.com/robonuggets/higgsfield-skill",
+      "description": "One MCP, 30+ image and video models. Higgsfield skill for Claude Code.",
+      "stargazers_count": 71,
+      "forks_count": 15,
+      "updated_at": "2026-11-02T12:28:15Z",
+      "pushed_at": "2026-05-01T04:31:07Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "NOASSERTION"
+    },
+    {
+      "full_name": "jurislm/higgsfield-plugin",
+      "html_url": "https://github.com/jurislm/higgsfield-plugin",
+      "description": "Standalone Claude Code plugin for Higgsfield AI generation — official MCP + 7 CLI skills",
+      "stargazers_count": 1,
+      "forks_count": 0,
+      "updated_at": "2026-09-30T07:09:28Z",
+      "pushed_at": "2026-09-30T07:09:48Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "MIT"
+    },
+    {
+      "full_name": "zenbu-labs/terminal-browser",
+      "html_url": "https://github.com/zenbu-labs/terminal-browser",
+      "description": "A real browser inside your terminal",
+      "stargazers_count": 4476,
+      "forks_count": 221,
+      "updated_at": "2026-11-07T08:56:12Z",
+      "pushed_at": "2026-11-05T15:59:33Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "MIT"
+    },
+    {
+      "full_name": "vercel-labs/agent-browser",
+      "html_url": "https://github.com/vercel-labs/agent-browser",
+      "description": "Browser automation CLI for AI agents",
+      "stargazers_count": 46359,
+      "forks_count": 3179,
+      "updated_at": "2026-11-07T09:17:33Z",
+      "pushed_at": "2026-11-07T05:27:47Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "Apache-2.0"
+    },
+    {
+      "full_name": "microsoft/playwright-mcp",
+      "html_url": "https://github.com/microsoft/playwright-mcp",
+      "description": "Playwright MCP server",
+      "stargazers_count": 39289,
+      "forks_count": 3393,
+      "updated_at": "2026-11-07T09:08:07Z",
+      "pushed_at": "2026-11-06T22:49:45Z",
+      "archived": false,
+      "default_branch": "main",
+      "license": "Apache-2.0"
+    }
+  ]
+}

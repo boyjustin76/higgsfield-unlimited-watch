@@ -1,0 +1,6 @@
+{
+  "command": ["wsl.exe", "-d", "Ubuntu", "--exec", "/home/YOUR_LINUX_USER/.local/bin/terminal-browser"],
+  "browser": "DISCOVER_WITH_TERMINAL_BROWSER_LS_ALL",
+  "tab": "1",
+  "command_timeout_seconds": 30
+}
