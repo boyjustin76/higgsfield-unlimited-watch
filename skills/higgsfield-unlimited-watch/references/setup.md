@@ -75,9 +75,9 @@ $hc = Join-Path $env:LOCALAPPDATA 'Programs\herdr-core\hc.exe'
 Select your actual receiving agent terminal ID. Do not copy another machine's ID. Start from the checkout directory, substituting UUID and terminal ID:
 
 ```powershell
-& $hc run --bg --no-notify --name higgs-watch python skills/higgsfield-unlimited-watch/scripts/huw.py watch --config config.local.json --asset-id RESULT_UUID --state-dir local/job-001 --hc $hc --notify-terminal AGENT_TERMINAL_ID
+& $hc run --bg --no-notify --name higgs-watch python skills/higgsfield-unlimited-watch/scripts/huw.py watch --config config.local.json --asset-id RESULT_UUID --state-dir local/job-001 --hc $hc --notify-terminal AGENT_TERMINAL_ID --notify-app copilot
 ```
 
-The watcher continues locally and sends a fixed completion message. The message has no page text or private resource URLs. Keep Herdr and the browser running. Avoid repeatedly reading the screen through the model while this process runs. For non-Herdr hosts, omit notification flags and use the event file with the host's supported callback mechanism; the file alone does not wake an agent.
+Use `--notify-app codex` if the intended terminal runs Codex. The watcher checks the observed terminal address, exact app identity and idle/done state before sending. Both `--notify-terminal` and `--notify-app` are required together, including when resuming an older command. The watcher continues locally and sends a fixed completion message. The message has no page text or private resource URLs. Keep Herdr and the browser running. Avoid repeatedly reading the screen through the model while this process runs. For non-Herdr hosts, omit notification flags and use the event file with the host's supported callback mechanism; the file alone does not wake an agent.
 
 If `hc` requests approval or reports a blocked target, do not force-send. Reconcile the relay receipt as described in recovery. No internal host API or credential copying is required.

@@ -9,7 +9,7 @@
 
 A self-contained agent skill and dependency-free Python helper for eligible Higgsfield accounts. Check the actual Unlimited toggle and submit label, follow a result by its asset ID, and notify an active Herdr agent when it finishes—without repeated LLM status checks.
 
-**Experimental v0.1.** Tested browser environment: Windows + WSL Ubuntu + terminal-browser. This project does not grant Unlimited access. Eligibility and limits belong to Higgsfield. [Verified scope and limitations →](docs/validation.md)
+**Experimental v0.1.0a2.** Tested browser environment: Windows + WSL Ubuntu + terminal-browser. This project does not grant Unlimited access. Eligibility and limits belong to Higgsfield. [Verified scope and limitations →](docs/validation.md)
 
 ## The problem
 
@@ -64,7 +64,7 @@ python skills/higgsfield-unlimited-watch/scripts/huw.py watch \
   --config config.local.json --asset-id RESULT_UUID --state-dir local/job-001
 ```
 
-Use a single line in PowerShell. Run the monitor in a background terminal; optional `--hc HC_EXECUTABLE --notify-terminal AGENT_TERMINAL_ID` connects an active Herdr session. [Herdr setup →](skills/higgsfield-unlimited-watch/references/setup.md#herdr-background-monitor)
+Use a single line in PowerShell. Run the monitor in a background terminal; optional `--hc HC_EXECUTABLE --notify-terminal AGENT_TERMINAL_ID --notify-app copilot` connects an active Herdr session. Select `codex` instead when that is the intended app; both target flags are required. [Herdr setup →](skills/higgsfield-unlimited-watch/references/setup.md#herdr-background-monitor)
 
 The helper **does not click Generate** or enforce an account-wide queue. The skill directs the agent to verify the complete settings, keep one job active and submit once. A UI check is a point-in-time observation, not a billing guarantee.
 

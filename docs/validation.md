@@ -4,7 +4,7 @@ Date: 2026-11-07. Experimental release; this is a capability matrix, not a claim
 
 | Capability | Evidence | Limits |
 |---|---|---|
-| Unit/behavior tests | 34 tests pass locally and in hosted Windows/Ubuntu × Python 3.10/3.12 CI; [initial passing run](https://github.com/boyjustin76/higgsfield-unlimited-watch/actions/runs/42360915916) | Unit tests and synthetic demo do not establish live cross-platform browser support |
+| Unit/behavior tests | v0.1.0a2: 45 tests on a real WSL Linux filesystem pass; Windows passes 40 and skips 5 POSIX-only tests. [Hosted CI](https://github.com/boyjustin76/higgsfield-unlimited-watch/actions/workflows/test.yml) runs Windows/Ubuntu × Python 3.10/3.12 | Unit tests and synthetic demo do not establish live cross-platform browser support |
 | Offline demo | CLI runs synthetic processing → completed → completed through the actual parser/persistence | No real generation or browser involved |
 | Live form inspection | New helper verified actual Unlimited switch=true, enabled Unlimited submit label, prompt hash, one reference | Read-only; no credit/billing audit |
 | Stable DOM identity | Actual data-asset-id/data-job-status observed in signed-in browser | App attributes may change; virtualized nodes may disappear |
@@ -15,7 +15,9 @@ Date: 2026-11-07. Experimental release; this is a capability matrix, not a claim
 | Second machine | Not tested | Office setup remains pending |
 | Personal-media English demo | Deferred at user's request | No company footage is shipped |
 | Skill packaging | Bundled skill validator passed in Python UTF-8 mode | Behavioral installation on a second host remains untested |
-| Independent review | Copilot reviewed competitor README/source and product positioning | Source review of this implementation was not completed because its workspace required additional read approval |
+| Independent review | Copilot statically reviewed published commit 3cc2c39 and identified three follow-ups, addressed in v0.1.0a2 | Fixes have regression tests; the reviewer did not run the tests or re-review the fixes |
+
+v0.1.0a2 regression coverage: CLI prompt-file roundtrips preserve leading/trailing spaces, tabs, blank lines and boundary newlines across literal/br/block DOM renderings; expected recipient app/address mismatch blocks sends; POSIX permissions are checked under umask022 including temp-file cleanup, journal writes and refusal to alter unrelated paths. The browser was closed during these fixes, so new multiline behavior was not revalidated on a live Higgsfield editor.
 
 Tested browser stack: Windows, WSL2 Ubuntu, terminal-browser 0.15.3, Noctty 1.3.135. Agent coordination in the current desktop app uses herdr-core `hc`, not the older `herdr` multiplexer. Native Linux transport is configurable but not field-validated; macOS/browser adapters are not advertised as supported.
 

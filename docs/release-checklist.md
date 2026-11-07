@@ -23,4 +23,4 @@ cd path\to\higgsfield-unlimited-watch
 
 The publishing script verifies account identity, requires a clean committed tree, and refuses an existing origin rather than guessing. If your execution policy blocks scripts, use the equivalent reviewed `gh repo create ... --public --source . --remote origin --push` command directly; do not change system policy just for this project.
 
-After publication, inspect `gh run list` and the actual workflow result before adding a release tag. The source version is `0.1.0a1`; no stable-release claim is intended. Do not upload local/ or config.local.json. A release demo should use personal assets with permission, never company material.
+After publication, inspect `gh run list` and the actual workflow result before adding a release tag. The source version is `0.1.0a2`; no stable-release claim is intended. Do not upload local/ or config.local.json. A release demo should use personal assets with permission, never company material.

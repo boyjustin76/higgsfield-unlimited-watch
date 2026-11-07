@@ -1,10 +1,15 @@
 import importlib.util
+import html
+import io
 import json
+import os
+import stat
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from contextlib import redirect_stdout, redirect_stderr
 
 SCRIPT = Path(__file__).resolve().parents[1] / "skills/higgsfield-unlimited-watch/scripts/huw.py"
 spec = importlib.util.spec_from_file_location("huw", SCRIPT)
@@ -12,7 +17,7 @@ huw = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(huw)
 A = "00000000-0000-4000-8000-000000000001"
 B = "00000000-0000-4000-8000-000000000002"
-LIVE = json.dumps({"state": "live", "status": {"app": "copilot", "state": "idle"}})
+LIVE = json.dumps({"address": "t1", "state": "live", "status": {"app": "copilot", "state": "idle"}})
 
 
 def form(checked="true", label="Generate Unlimited", disabled="", extra="", switch_disabled=""):
@@ -29,6 +34,19 @@ def asset(status="completed", aid=A, video=True):
 
 
 class FormTests(unittest.TestCase):
+    def test_prompt_line_boundaries_and_empty_editor(self):
+        examples = {
+            '<p>first</p><p><br></p><p>last</p>': 'first\n\nlast',
+            '<div>first</div><div>last</div>': 'first\nlast',
+            '<p>first<br>last</p>': 'first\nlast',
+            '<p> first\t </p><p><br></p>': ' first\t \n',
+            '<p><br></p>': '', '<br>': '', 'first<br><br>last': 'first\n\nlast',
+        }
+        for markup, expected in examples.items():
+            with self.subTest(markup=markup):
+                page = form().replace('A <span>paper</span> bird', markup)
+                self.assertEqual(huw.form_state(page)['prompt_sha256'], huw.digest(expected))
+
     def test_verified(self):
         self.assertTrue(huw.form_state(form())["unlimited_verified"])
 
@@ -194,8 +212,8 @@ class WatchTests(unittest.TestCase):
     def test_relay_only_once(self):
         self.watch(["completed", "completed"])
         with patch.object(huw.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, LIVE, "")) as run:
-            first = huw.relay(self.root, "hc", "t1", runner=run)
-            second = huw.relay(self.root, "hc", "t1", runner=run)
+            first = huw.relay(self.root, "hc", "t1", expected_app="copilot", runner=run)
+            second = huw.relay(self.root, "hc", "t1", expected_app="copilot", runner=run)
         self.assertEqual(first, second)
         self.assertEqual(run.call_count, 2)
         self.assertEqual(first["state"], "accepted")
@@ -203,8 +221,8 @@ class WatchTests(unittest.TestCase):
     def test_relay_ambiguous_not_retried(self):
         self.watch(["completed", "completed"])
         with patch.object(huw.subprocess, "run", side_effect=[subprocess.CompletedProcess([], 0, LIVE, ""), subprocess.TimeoutExpired("hc", 30)]) as run:
-            first = huw.relay(self.root, "hc", "t1", runner=run)
-            huw.relay(self.root, "hc", "t1", runner=run)
+            first = huw.relay(self.root, "hc", "t1", expected_app="copilot", runner=run)
+            huw.relay(self.root, "hc", "t1", expected_app="copilot", runner=run)
         self.assertEqual(first["state"], "delivery_unknown")
         self.assertEqual(run.call_count, 2)
 
@@ -215,8 +233,8 @@ class WatchTests(unittest.TestCase):
                 return subprocess.CompletedProcess([], 0, LIVE, "")
             raise KeyboardInterrupt()
         with self.assertRaises(KeyboardInterrupt):
-            huw.relay(self.root, "hc", "t1", runner=crash)
-        self.assertEqual(huw.relay(self.root, "hc", "t1", runner=crash)["state"], "attempting")
+            huw.relay(self.root, "hc", "t1", expected_app="copilot", runner=crash)
+        self.assertEqual(huw.relay(self.root, "hc", "t1", expected_app="copilot", runner=crash)["state"], "attempting")
 
     def test_relay_does_not_type_into_shell_or_dialog(self):
         self.watch(["completed", "completed"])
@@ -224,8 +242,29 @@ class WatchTests(unittest.TestCase):
             data = json.dumps({"state": "live", "status": status})
             with patch.object(huw.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, data, "")) as run:
                 with self.assertRaises(huw.GuardError):
-                    huw.relay(self.root, "hc", "t1", runner=run)
+                    huw.relay(self.root, "hc", "t1", expected_app="copilot", runner=run)
                 self.assertEqual(run.call_count, 1)
+
+    def test_relay_wrong_app_or_address_rejected_without_receipt(self):
+        self.watch(["completed", "completed"])
+        for app, address in [('bash', 't1'), ('vim', 't1'), ('codex', 't1'), ('copilot', 't2')]:
+            data = json.dumps({'address': address, 'state': 'live', 'status': {'app': app, 'state': 'idle'}})
+            with patch.object(huw.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, data, '')) as run:
+                with self.assertRaises(huw.GuardError):
+                    huw.relay(self.root, 'hc', 't1', expected_app='copilot', runner=run)
+                self.assertEqual(run.call_count, 1)
+                self.assertEqual(list(self.root.glob('relay-*.json')), [])
+
+    def test_relay_unknown_expected_app_rejected(self):
+        with self.assertRaises(huw.GuardError):
+            huw.relay(self.root, 'hc', 't1', expected_app='bash')
+
+    def test_relay_legacy_receipt_does_not_resend(self):
+        event = self.watch(['completed', 'completed'])
+        huw.atomic_json(self.root / f"relay-t1-{event['event_id']}.json", {'state': 'attempting'})
+        with patch.object(huw.subprocess, 'run') as run, self.assertRaises(huw.GuardError):
+            huw.relay(self.root, 'hc', 't1', expected_app='copilot', runner=run)
+        run.assert_not_called()
 
     def test_invalid_asset(self):
         with self.assertRaises(huw.GuardError):
@@ -240,6 +279,40 @@ class WatchTests(unittest.TestCase):
 
 
 class CLITests(unittest.TestCase):
+    def test_prompt_file_whitespace_roundtrip(self):
+        expected = ' \tA paper crane.\n\nSoft light.\t \n'
+        for rendering in ('literal', 'br', 'blocks'):
+            with self.subTest(rendering=rendering), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                config = root / 'config.json'
+                config.write_text(json.dumps({'command': ['terminal-browser'], 'browser': 'session'}), encoding='utf-8')
+                prompt = root / 'prompt.txt'
+                prompt.write_bytes(b'\xef\xbb\xbf' + expected.replace('\n', '\r\n').encode('utf-8'))
+                editor = {'html': 'old prompt', 'filled': None}
+                def action(_browser, *args):
+                    if args == ('get', 'url'): return 'https://higgsfield.ai/ai/video'
+                    if args[:2] == ('get', 'count'): return '1'
+                    if args[:2] == ('get', 'html'):
+                        return form().replace('A <span>paper</span> bird', editor['html'])
+                    if args == ('press', 'Backspace'): editor['html'] = '<p><br></p>'
+                    if args[0] == 'fill':
+                        editor['filled'] = args[2]
+                        escaped = html.escape(args[2])
+                        editor['html'] = (escaped if rendering == 'literal' else escaped.replace('\n', '<br>')
+                                          if rendering == 'br' else ''.join('<p>' + (line or '<br>') + '</p>' for line in escaped.split('\n')))
+                    return ''
+                output = io.StringIO()
+                with patch.object(huw.Browser, 'action', action), redirect_stdout(output):
+                    result = huw.main(['set-prompt', '--config', str(config), '--file', str(prompt)])
+                self.assertEqual(result, 0)
+                self.assertEqual(editor['filled'], expected)
+                self.assertEqual(json.loads(output.getvalue())['prompt_sha256'], huw.digest(expected))
+
+    def test_notification_requires_app_before_starting_monitor(self):
+        with self.assertRaises(SystemExit), patch.object(huw, 'watch') as watch, redirect_stderr(io.StringIO()):
+            huw.main(['watch', '--config', 'unused', '--asset-id', A, '--state-dir', 'unused', '--notify-terminal', 't1'])
+        watch.assert_not_called()
+
     def test_demo_offline(self):
         with tempfile.TemporaryDirectory() as tmp:
             r = subprocess.run([huw.sys.executable, str(SCRIPT), "demo", "--state-dir", tmp],

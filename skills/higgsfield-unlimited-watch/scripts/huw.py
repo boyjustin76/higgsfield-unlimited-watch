@@ -12,7 +12,9 @@ import math
 import os
 import re
 import subprocess
+import stat
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -21,7 +23,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from uuid import UUID
 
-VERSION = "0.1.0a1"
+VERSION = "0.1.0a2"
 FORM = 'form[data-tour-anchor="tour-video-form"]'
 SELECTORS = {
     "form": FORM,
@@ -34,6 +36,7 @@ SELECTORS = {
 PENDING = {"pending", "queued", "processing", "generating", "in_progress"}
 FAILED = {"failed", "error"}
 TERMINAL = {"completed", "failed"}
+SUPPORTED_AGENTS = {"codex", "copilot"}
 
 
 class GuardError(Exception):
@@ -48,16 +51,58 @@ def digest(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def private_directory(directory):
+    """Create private state directories; never chmod an existing user directory."""
+    directory = Path(directory)
+    if not directory.exists() and not directory.is_symlink():
+        missing = []
+        parent = directory
+        while not parent.exists() and not parent.is_symlink():
+            missing.append(parent)
+            parent = parent.parent
+        for path in reversed(missing):
+            try:
+                path.mkdir(mode=0o700)
+            except FileExistsError:
+                pass  # Another process may have created it; verify the leaf below.
+    info = directory.lstat()
+    if not stat.S_ISDIR(info.st_mode):
+        raise GuardError("state directory must be a real directory, not a symlink")
+    if os.name == "posix" and (info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700):
+        raise GuardError("POSIX state directory must be owned by you with mode 0700; choose a private directory or explicitly secure the dedicated state directory")
+    return directory
+
+
 def atomic_json(path, data):
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + f".{os.getpid()}.tmp")
-    with temp.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(temp, path)
+    private_directory(path.parent)
+    fd, temp = tempfile.mkstemp(prefix="." + path.name + ".", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            if os.name == "posix":
+                os.fchmod(f.fileno(), 0o600)
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp, path)
+    finally:
+        Path(temp).unlink(missing_ok=True)
+
+
+def append_transition(path, data):
+    path = Path(path)
+    private_directory(path.parent)
+    if path.is_symlink():
+        raise GuardError("transition journal must not be a symlink")
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o600)
+    with os.fdopen(fd, "a", encoding="utf-8") as f:
+        if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+            raise GuardError("transition journal must be a regular file")
+        if os.name == "posix":
+            os.fchmod(f.fileno(), 0o600)
+        f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
 
 def read_json(path):
@@ -123,6 +168,34 @@ class DOM(HTMLParser):
         self.stack[-1].parts.append(data)
 
 
+def normalize_newlines(text):
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def prompt_text(node):
+    """Lexical plain text: preserve spaces/tabs and logical line boundaries.
+
+    An otherwise empty editor/paragraph's sole br is an editor placeholder.
+    Adjacent blocks each contribute a boundary, including empty paragraphs.
+    """
+    blocks = {"p", "div", "li", "pre", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6"}
+    if node.tag == "br":
+        return "\n"
+    if (node.tag in blocks or node.attrs.get("role") == "textbox") and len(node.parts) == 1:
+        part = node.parts[0]
+        if isinstance(part, Node) and part.tag == "br":
+            return ""
+    result = []
+    previous_block = False
+    for index, part in enumerate(node.parts):
+        is_block = isinstance(part, Node) and part.tag in blocks
+        if index and (previous_block or is_block):
+            result.append("\n")
+        result.append(prompt_text(part) if isinstance(part, Node) else part)
+        previous_block = is_block
+    return normalize_newlines("".join(result))
+
+
 def one(nodes, predicate, label):
     matches = [n for n in nodes if predicate(n)]
     if len(matches) != 1:
@@ -154,7 +227,7 @@ def form_state(html):
         "unlimited": switch.attrs.get("aria-checked"), "switch_disabled": disabled(switch),
         "submit_label": submit.text(), "submit_disabled": disabled(submit),
         "unlimited_verified": ready, "model": model.text(), "settings": settings,
-        "prompt_sha256": digest(prompt.text()), "prompt_length": len(prompt.text()),
+        "prompt_sha256": digest(prompt_text(prompt)), "prompt_length": len(prompt_text(prompt)),
         "reference_count": len(refs),
     }
 
@@ -231,6 +304,7 @@ class Browser:
         return state
 
     def replace_prompt(self, prompt):
+        prompt = normalize_newlines(prompt)
         self.inspect()
         self.action("click", SELECTORS["prompt"])
         self.action("press", "Control+a")
@@ -250,8 +324,7 @@ class Browser:
 
 @contextmanager
 def lock(directory, name="monitor.lock"):
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
+    directory = private_directory(directory)
     path = directory / name
     try:
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -259,6 +332,8 @@ def lock(directory, name="monitor.lock"):
         raise GuardError(f"{name} exists: inspect its PID before recovery") from None
     try:
         with os.fdopen(fd, "w") as f:
+            if os.name == "posix":
+                os.fchmod(f.fileno(), 0o600)
             json.dump({"pid": os.getpid(), "created_at": utcnow()}, f)
         yield
     finally:
@@ -303,8 +378,7 @@ def watch(observe, asset_id, directory, *, interval=20, timeout=3600,
                                elapsed_seconds=round(clock() - started, 3))
                 atomic_json(directory / "status.json", current)
                 if signature != previous:
-                    with (directory / "transitions.jsonl").open("a", encoding="utf-8") as f:
-                        f.write(json.dumps(current, ensure_ascii=False) + "\n")
+                    append_transition(directory / "transitions.jsonl", current)
                     previous = signature
                 if observation["state"] in TERMINAL and consecutive >= confirmations:
                     event = current
@@ -323,11 +397,13 @@ def watch(observe, asset_id, directory, *, interval=20, timeout=3600,
         return event
 
 
-def relay(directory, hc, terminal, runner=subprocess.run):
+def relay(directory, hc, terminal, *, expected_app, runner=subprocess.run):
     """One send attempt per event/target. Crash-ambiguous attempts are not retried."""
     if not re.fullmatch(r"t[0-9a-z]+", terminal):
         raise GuardError("notify target must be an observed local hc terminal ID")
-    directory = Path(directory)
+    if expected_app not in SUPPORTED_AGENTS:
+        raise GuardError("notify app must be an explicitly supported agent: codex or copilot")
+    directory = private_directory(directory)
     event = read_json(directory / "event.json")
     if event.get("state") not in TERMINAL | {"timeout", "cancelled"}:
         raise GuardError("not a terminal monitor event")
@@ -337,7 +413,10 @@ def relay(directory, hc, terminal, runner=subprocess.run):
     receipt = directory / f"relay-{terminal}-{event['event_id']}.json"
     with lock(directory, "relay.lock"):
         if receipt.exists():
-            return read_json(receipt)
+            saved = read_json(receipt)
+            if saved.get("expected_app") != expected_app:
+                raise GuardError("relay receipt has a different or legacy app binding; inspect delivery before manual recovery")
+            return saved
         # A terminal ID can outlive its agent. Never type an event into a shell
         # or answer an approval dialog after the original agent has exited.
         try:
@@ -345,14 +424,17 @@ def relay(directory, hc, terminal, runner=subprocess.run):
                           encoding="utf-8", timeout=10, shell=False,
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             target = json.loads(info.stdout) if info.returncode == 0 else {}
-            status = target.get("status") or {}
-            if (target.get("state") != "live" or not status.get("app")
+            if not isinstance(target, dict):
+                raise GuardError("invalid hc target response")
+            status = target.get("status")
+            if (target.get("address") != terminal or target.get("state") != "live"
+                    or not isinstance(status, dict) or status.get("app") != expected_app
                     or status.get("state") not in {"idle", "done"}):
-                raise GuardError("relay target must be a live, idle/done agent; inspect hc get/read")
+                raise GuardError("relay target must match the terminal ID and expected idle/done agent app; inspect hc get/read")
         except (OSError, subprocess.TimeoutExpired, ValueError):
             raise GuardError("could not verify the relay agent; no message sent") from None
         result = {"state": "attempting", "event_id": event["event_id"],
-                  "target": terminal, "attempted_at": utcnow()}
+                  "target": terminal, "expected_app": expected_app, "attempted_at": utcnow()}
         # Persist BEFORE send. This trades possible missed delivery for no blind retry.
         atomic_json(receipt, result)
         message = (f"[HUW_EVENT] asset_id={aid} state={event['state']} event_id={event['event_id']}. "
@@ -400,18 +482,22 @@ def main(argv=None):
             command.add_argument("--resume", action="store_true")
             command.add_argument("--hc", default="hc")
             command.add_argument("--notify-terminal")
+            command.add_argument("--notify-app", choices=sorted(SUPPORTED_AGENTS))
     command = sub.add_parser("relay")
     command.add_argument("--state-dir", required=True, type=Path)
     command.add_argument("--hc", default="hc")
     command.add_argument("--notify-terminal", required=True)
+    command.add_argument("--notify-app", required=True, choices=sorted(SUPPORTED_AGENTS))
     command = sub.add_parser("demo")
     command.add_argument("--state-dir", type=Path, default=Path("local/demo"))
     args = parser.parse_args(argv)
+    if args.action == "watch" and bool(args.notify_terminal) != bool(args.notify_app):
+        parser.error("--notify-terminal and --notify-app must be supplied together")
     try:
         if args.action == "demo":
             output = {"synthetic": True, "event": demo(args.state_dir)}
         elif args.action == "relay":
-            output = relay(args.state_dir, args.hc, args.notify_terminal)
+            output = relay(args.state_dir, args.hc, args.notify_terminal, expected_app=args.notify_app)
         else:
             browser = Browser(read_json(args.config))
             if args.action == "inspect":
@@ -419,15 +505,15 @@ def main(argv=None):
             elif args.action == "ensure-unlimited":
                 output = browser.ensure_unlimited()
             elif args.action == "set-prompt":
-                prompt = args.file.read_text(encoding="utf-8-sig").strip()
-                if not prompt:
+                prompt = normalize_newlines(args.file.read_bytes().decode("utf-8-sig"))
+                if not prompt.strip():
                     raise GuardError("prompt file is empty")
                 output = browser.replace_prompt(prompt)
             else:
                 output = watch(browser.observe, args.asset_id, args.state_dir,
                                interval=args.interval, timeout=args.timeout, resume=args.resume)
                 if args.notify_terminal:
-                    output = {"event": output, "relay": relay(args.state_dir, args.hc, args.notify_terminal)}
+                    output = {"event": output, "relay": relay(args.state_dir, args.hc, args.notify_terminal, expected_app=args.notify_app)}
         print(json.dumps(output, ensure_ascii=False, indent=2))
         return 0
     except (GuardError, OSError, ValueError, KeyError) as exc:

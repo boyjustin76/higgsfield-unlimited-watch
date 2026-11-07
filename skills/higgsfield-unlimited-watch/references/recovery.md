@@ -24,13 +24,19 @@ The file lock coordinates users of this state directory on one local filesystem.
 
 ## Relay recovery
 
-The relay first checks that the target is a live idle/done agent, not a plain shell, busy agent or approval dialog. If not ready, it stops without a send receipt; use `relay` once the correct agent is ready. The target can still change after the check; `hc send` performs its own readiness handling.
+The relay requires `--notify-app codex` or `--notify-app copilot` and verifies the returned terminal address and exact app identity, as well as live idle/done state. A different supported agent is still a mismatch. If not ready or mismatched, it stops without a send receipt; use `relay` once the correct agent is ready. The target can still change after the check; this is a point-in-time verification, not an atomic guarantee that the same process receives the subsequent send.
 
 The relay writes an `attempting` receipt before calling `hc send`. A successful exit becomes `accepted`; transport failure/timeout becomes `delivery_unknown`. Both receipts suppress automatic resend. A crash can leave `attempting` even if a message arrived. This is one attempted send, not exactly-once processing.
+
+Receipts record the expected app. A receipt from v0.1.0a1 has no app binding and is not automatically resent or silently migrated. Inspect the prior delivery and explicitly archive that receipt only when a resend is appropriate.
 
 Inspect the receiving conversation before manual recovery. If delivery is confirmed absent, archive the specific receipt and invoke `relay` deliberately. If uncertain, retain it and review the output manually. Reusing a completed job does not authorize a new generation. An agent turn, browser commands, and completion review can still consume tokens: only the local watch loop contains no LLM calls.
 
 ## Privacy and trust
+
+On POSIX, new state directories (including newly created parents) use mode `0700`; JSON, temporary files, journals and locks use `0600`. An existing state directory must already be owned by the current user with mode `0700`, otherwise the helper refuses it without changing its permissions. Choose a new private job directory, or explicitly secure a known dedicated state directory; do not chmod a shared working directory. Atomic replacement and journal writes secure only their own target files. Symlink state directories and journals are rejected.
+
+Windows uses inherited filesystem ACLs; POSIX mode bits are not a Windows privacy guarantee. Put state in a user-private folder and manage ACLs through Windows. POSIX permission tests run on Linux; they are skipped on Windows. WSL-mounted Windows filesystems may not support the required POSIX modes; use the Linux home/tmp filesystem when running the helper inside WSL.
 
 The helper does not request cookies, browser storage, tokens, private APIs, or downloaded media. It reads rendered DOM through terminal-browser. Normal inspection outputs a prompt hash/length and reference count, not prompt text or URLs. Do not attach raw DOM, browser profiles, config files, state directories, or company assets to issues. The browser itself still has a logged-in session; protect it normally.
 
