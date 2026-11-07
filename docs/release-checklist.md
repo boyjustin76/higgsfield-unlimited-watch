@@ -1,6 +1,6 @@
 # Experimental release handoff
 
-Local implementation is ready for review. GitHub publishing requires an authenticated owner; no credentials are bundled.
+Published at [boyjustin76/higgsfield-unlimited-watch](https://github.com/boyjustin76/higgsfield-unlimited-watch). No credentials are bundled. The initial publication instructions below are retained for reproducibility; do not rerun repository creation on this existing repository.
 
 - [x] Competitor and official-entitlement research, with source links and caveats
 - [x] Self-contained skill and standard-library CLI
@@ -8,7 +8,7 @@ Local implementation is ready for review. GitHub publishing requires an authenti
 - [x] Read-only live form + existing completed asset smoke test
 - [x] Synthetic event delivered through real herdr-core relay
 - [x] Public tree separated from local sessions, prompts and result IDs
-- [ ] GitHub authentication and repository creation/push
+- [x] GitHub authentication and repository creation/push
 - [ ] Observe hosted CI results after push
 - [ ] Personal-media live lifecycle and English demo
 - [ ] Second-machine install verification
