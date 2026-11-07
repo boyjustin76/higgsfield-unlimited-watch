@@ -14,6 +14,19 @@ Copy-Item config.example.json config.local.json
 
 Edit `config.local.json`: set the actual Linux binary path, discovered browser ID and intended tab. The `command` array is executable + arguments, not a shell string. Only use trusted config files: they select a local executable. For native Linux, `command` can be `["/home/YOU/.local/bin/terminal-browser"]`; live Linux-host support is not yet validated.
 
+If you installed only the skill folder, create a local config yourself instead of copying the repository example:
+
+```json
+{
+  "command": ["wsl.exe", "-d", "Ubuntu", "--exec", "/home/YOUR_LINUX_USER/.local/bin/terminal-browser"],
+  "browser": "YOUR_DISCOVERED_BROWSER_ID",
+  "tab": "1",
+  "command_timeout_seconds": 30
+}
+```
+
+Keep that config and state in your own local working directory, not inside a shared skill installation.
+
 ```powershell
 python skills/higgsfield-unlimited-watch/scripts/huw.py inspect --config config.local.json
 python skills/higgsfield-unlimited-watch/scripts/huw.py ensure-unlimited --config config.local.json
