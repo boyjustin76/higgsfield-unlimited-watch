@@ -4,7 +4,7 @@ Date: 2026-11-07. Experimental release; this is a capability matrix, not a claim
 
 | Capability | Evidence | Limits |
 |---|---|---|
-| Unit/behavior tests | 34 tests pass on local Windows Python 3.12 | CI matrix supplied; remote CI result not yet observed |
+| Unit/behavior tests | 34 tests pass locally and in hosted Windows/Ubuntu × Python 3.10/3.12 CI; [initial passing run](https://github.com/boyjustin76/higgsfield-unlimited-watch/actions/runs/42360915916) | Unit tests and synthetic demo do not establish live cross-platform browser support |
 | Offline demo | CLI runs synthetic processing → completed → completed through the actual parser/persistence | No real generation or browser involved |
 | Live form inspection | New helper verified actual Unlimited switch=true, enabled Unlimited submit label, prompt hash, one reference | Read-only; no credit/billing audit |
 | Stable DOM identity | Actual data-asset-id/data-job-status observed in signed-in browser | App attributes may change; virtualized nodes may disappear |

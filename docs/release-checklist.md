@@ -9,7 +9,7 @@ Published at [boyjustin76/higgsfield-unlimited-watch](https://github.com/boyjust
 - [x] Synthetic event delivered through real herdr-core relay
 - [x] Public tree separated from local sessions, prompts and result IDs
 - [x] GitHub authentication and repository creation/push
-- [ ] Observe hosted CI results after push
+- [x] Observe hosted CI results after push (Windows/Ubuntu, Python 3.10/3.12)
 - [ ] Personal-media live lifecycle and English demo
 - [ ] Second-machine install verification
 
