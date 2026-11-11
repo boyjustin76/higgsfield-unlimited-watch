@@ -94,3 +94,9 @@ See [recovery](skills/higgsfield-unlimited-watch/references/recovery.md), [valid
 ## Credits
 
 Built on [terminal-browser](https://github.com/zenbu-labs/terminal-browser). Herdr integration uses the installed herdr-core `hc` command. Independent community project; not affiliated with Higgsfield. Original implementation, licensed under [MIT](LICENSE).
+# Rust implementation (local migration candidate)
+
+See [RUST_PORT.md](RUST_PORT.md) for the five checkpoints, compatibility matrix,
+commands and verification limitations. Build with `cargo build --release`;
+the binary is `target/release/huw` (`huw.exe` on Windows). Existing Python
+entry points remain unchanged; no automatic installer switch is performed.

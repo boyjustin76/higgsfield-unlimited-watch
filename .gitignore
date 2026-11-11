@@ -12,3 +12,4 @@ dist/
 *.zip
 config.local.json
 .coverage
+/target/
