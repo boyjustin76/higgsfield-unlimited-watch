@@ -90,6 +90,26 @@ impl Browser<'_> {
         }
         Ok(s)
     }
+    pub fn replace_prompt(&self, value: &str) -> Result<Value> {
+        let value = dom::normalize(value.strip_prefix('\u{feff}').unwrap_or(value));
+        if value.trim().is_empty() {
+            bail!("prompt file is empty");
+        }
+        self.inspect()?;
+        let selector = format!("{} [role=textbox][contenteditable=true]", self.form());
+        self.action(&["click", &selector])?;
+        self.action(&["press", "Control+a"])?;
+        self.action(&["press", "Backspace"])?;
+        if self.inspect()?["prompt_length"] != 0 {
+            bail!("prompt did not clear; no text was appended");
+        }
+        self.action(&["fill", &selector, &value])?;
+        let state = self.inspect()?;
+        if state["prompt_sha256"] != dom::digest(&value) {
+            bail!("prompt readback differs; inspect editor before generation");
+        }
+        Ok(state)
+    }
     pub fn observe(&self, aid: &str) -> Result<Value> {
         self.check_origin()?;
         Ok(dom::history(&self.action(&["get", "html", "main"])?, aid))

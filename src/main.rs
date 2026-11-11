@@ -16,6 +16,12 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Action {
+    SetPrompt {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long)]
+        file: PathBuf,
+    },
     Inspect {
         #[arg(long)]
         config: PathBuf,
@@ -26,16 +32,23 @@ enum Action {
     },
 }
 fn run(cli: Cli) -> Result<serde_json::Value> {
-    let (path, ensure) = match cli.action {
-        Action::Inspect { config } => (config, false),
-        Action::EnsureUnlimited { config } => (config, true),
+    let (path, ensure, file) = match cli.action {
+        Action::Inspect { config } => (config, false, None),
+        Action::EnsureUnlimited { config } => (config, true, None),
+        Action::SetPrompt { config, file } => (config, false, Some(file)),
     };
     let config: Config = serde_json::from_slice(&std::fs::read(path)?)?;
     let b = Browser {
         config,
         runner: &Process,
     };
-    if ensure { b.ensure() } else { b.inspect() }
+    if let Some(file) = file {
+        b.replace_prompt(&std::fs::read_to_string(file)?)
+    } else if ensure {
+        b.ensure()
+    } else {
+        b.inspect()
+    }
 }
 fn main() {
     match run(Cli::parse()) {
