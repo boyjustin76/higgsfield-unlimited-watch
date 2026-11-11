@@ -62,7 +62,7 @@ huw inspect --config config.local.json
 huw ensure-unlimited --config config.local.json
 huw set-prompt --config config.local.json --file prompt.txt
 huw watch --config config.local.json --asset-id UUID --state-dir local/job
-huw relay --state-dir local/job --hc hc --notify-terminal t17 --notify-app codex
+huw relay --state-dir local/job --hc hc --notify-terminal AGENT_TERMINAL_ID --notify-app codex
 huw demo --state-dir local/offline-demo
 ```
 
@@ -84,7 +84,7 @@ not establish completion. Preserve the pre-submission baseline and bind a new UU
 ### Opt-in recovery
 
 ```
-huw supervise --config config.local.json --asset-id UUID --state-dir local/job --max-restarts 2 --backoff 5 --notify-terminal t17 --notify-app codex --relay-wait 900
+huw supervise --config config.local.json --asset-id UUID --state-dir local/job --max-restarts 2 --backoff 5 --notify-terminal AGENT_TERMINAL_ID --notify-app codex --relay-wait 900
 ```
 
 The supervisor launches this same binary's watch command. It retries only a
