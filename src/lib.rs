@@ -1,3 +1,8 @@
 pub mod browser;
+pub mod cli;
 pub mod dom;
+pub mod monitor;
+pub mod relay;
+pub mod storage;
+pub mod supervisor;
 pub mod transport;
