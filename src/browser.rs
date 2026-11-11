@@ -5,13 +5,23 @@ use serde_json::Value;
 #[derive(Deserialize)]
 pub struct Config {
     pub command: Vec<String>,
+    #[serde(deserialize_with = "identifier")]
     pub browser: String,
-    #[serde(default = "tab")]
+    #[serde(default = "tab", deserialize_with = "identifier")]
     pub tab: String,
     #[serde(default = "timeout")]
     pub command_timeout_seconds: f64,
     #[serde(default)]
     pub media_kind: String,
+}
+fn identifier<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<String, D::Error> {
+    match Value::deserialize(d)? {
+        Value::String(s) => Ok(s),
+        Value::Number(n) => Ok(n.to_string()),
+        _ => Err(serde::de::Error::custom(
+            "browser/tab must be string or number",
+        )),
+    }
 }
 fn tab() -> String {
     "1".into()
@@ -67,6 +77,10 @@ impl Browser<'_> {
     pub fn inspect(&self) -> Result<Value> {
         self.check_origin()?;
         if self.action(&["get", "count", self.form()])? != "1" {
+            let login=self.action(&["eval","Array.from(document.querySelectorAll('button,a')).some(n=>/^(Login|Log in|Sign in|로그인)$/.test(n.innerText.trim()))"])?;
+            if login == "true" {
+                bail!("signed_out: explicit login control present; no automatic login");
+            }
             bail!("selector drift: expected one creation form");
         }
         dom::form(&self.action(&["get", "html", self.form()])?, self.image())
@@ -112,6 +126,15 @@ impl Browser<'_> {
     }
     pub fn observe(&self, aid: &str) -> Result<Value> {
         self.check_origin()?;
-        Ok(dom::history(&self.action(&["get", "html", "main"])?, aid))
+        let aid = crate::monitor::asset(aid)?;
+        if self.image() {
+            let js = format!(
+                r#"(() => {{const id={}; const sel='[data-asset-id="'+id+'"]';return Array.from(document.querySelectorAll(sel)).map(n=>({{nested:!!n.parentElement?.closest(sel),status:n.getAttribute('data-job-status'),kind:n.getAttribute('data-tour-asset-kind'),image_loaded:Array.from(n.querySelectorAll('img[alt="image generation"]')).some(i=>i.complete&&i.naturalWidth>0&&i.naturalHeight>0)}}));}})()"#,
+                serde_json::to_string(&aid)?
+            );
+            let cards: Value = serde_json::from_str(&self.action(&["eval", &js])?)?;
+            return Ok(crate::image::classify(&cards, &aid));
+        }
+        Ok(dom::history(&self.action(&["get", "html", "main"])?, &aid))
     }
 }

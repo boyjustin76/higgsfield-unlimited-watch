@@ -21,7 +21,10 @@ pub fn deferred(
             || info["address"] != target
             || info["state"] != "live"
             || info["status"]["app"] != app
-            || matches!(info["status"]["state"].as_str(), Some("blocked" | "error"))
+            || !matches!(
+                info["status"]["state"].as_str(),
+                Some("idle" | "done" | "working")
+            )
         {
             bail!("recipient unavailable; event retained");
         }

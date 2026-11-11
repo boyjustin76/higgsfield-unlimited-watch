@@ -3,7 +3,7 @@ use huw::{
     relay, storage, supervisor,
     transport::{Output, Runner},
 };
-use serde_json::{Value, json};
+use serde_json::json;
 use std::cell::RefCell;
 #[test]
 fn owned_lock_cleanup_only() {

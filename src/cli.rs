@@ -46,6 +46,18 @@ pub struct WatchArgs {
 }
 #[derive(Subcommand)]
 pub enum Action {
+    Ensure {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long)]
+        expected: PathBuf,
+    },
+    Observe {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long)]
+        asset_id: String,
+    },
     Supervise {
         #[command(flatten)]
         watch: WatchArgs,
@@ -91,6 +103,24 @@ fn config(path: PathBuf) -> Result<Config> {
 }
 pub fn run(cli: Cli, cancel: &AtomicBool) -> Result<Value> {
     match cli.action {
+        Action::Ensure {
+            config: path,
+            expected,
+        } => {
+            let b = Browser {
+                config: config(path)?,
+                runner: &Process,
+            };
+            crate::image::expected(b.inspect()?, &crate::storage::read(&expected)?)
+        }
+        Action::Observe {
+            config: path,
+            asset_id,
+        } => Browser {
+            config: config(path)?,
+            runner: &Process,
+        }
+        .observe(&asset_id),
         Action::Supervise {
             watch,
             max_restarts,
@@ -161,9 +191,22 @@ pub fn run(cli: Cli, cancel: &AtomicBool) -> Result<Value> {
                     self.0 += s;
                 }
             }
-            let mut states = ["pending", "completed", "completed"].into_iter();
+            let mut states = ["processing", "completed", "completed"].into_iter();
             let event = monitor::watch(
-                |id| Ok(json!({"state":states.next().unwrap(),"asset_id":id})),
+                |id| {
+                    let status = states.next().unwrap();
+                    Ok(crate::dom::history(
+                        &format!(
+                            "<div data-asset-id='{id}' data-job-status='{status}'>{}</div>",
+                            if status == "completed" {
+                                "<video></video>"
+                            } else {
+                                ""
+                            }
+                        ),
+                        id,
+                    ))
+                },
                 "00000000-0000-4000-8000-000000000001",
                 &state_dir,
                 20.0,

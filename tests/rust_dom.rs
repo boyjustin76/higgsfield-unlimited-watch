@@ -109,13 +109,14 @@ fn privacy() {
 fn settings_incomplete() {
     let s = dom::form(&form(), false).unwrap();
     assert_eq!(s["settings_complete"], false);
-    assert_eq!(s["missing_settings"].as_array().unwrap().len(), 4);
+    assert_eq!(s["missing_settings"].as_array().unwrap().len(), 5);
 }
 #[test]
 fn settings_current_dom() {
     let mut s = form();
     for (k, v) in [
         ("Duration", "6s"),
+        ("Audio", "On"),
         ("Ratio", "9:16"),
         ("Quality", "480p"),
         ("Bitrate", "High"),

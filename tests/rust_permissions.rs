@@ -18,7 +18,7 @@ fn artifacts_private() {
             0o600
         );
     }
-    for p in [&d, d.parent().unwrap()] {
+    for p in [d.as_path(), d.parent().unwrap()] {
         assert_eq!(fs::metadata(p).unwrap().permissions().mode() & 0o777, 0o700);
     }
 }

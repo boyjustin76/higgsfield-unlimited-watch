@@ -1,6 +1,7 @@
 pub mod browser;
 pub mod cli;
 pub mod dom;
+pub mod image;
 pub mod monitor;
 pub mod relay;
 pub mod storage;

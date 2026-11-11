@@ -82,7 +82,13 @@ pub fn form(html: &str, image: bool) -> Result<Value> {
         if n.attr("data-form-kit-setting-button").is_some()
             || matches!(
                 label,
-                "Duration" | "Ratio" | "Quality" | "Bitrate" | "Resolution" | "Aspect ratio"
+                "Duration"
+                    | "Ratio"
+                    | "Quality"
+                    | "Bitrate"
+                    | "Resolution"
+                    | "Aspect ratio"
+                    | "Audio"
             )
         {
             if settings.insert(label.into(), json!(text(n))).is_some() {
@@ -110,7 +116,7 @@ pub fn form(html: &str, image: bool) -> Result<Value> {
     let expected = if image {
         vec!["Resolution", "Aspect ratio"]
     } else {
-        vec!["Duration", "Ratio", "Quality", "Bitrate"]
+        vec!["Duration", "Ratio", "Quality", "Bitrate", "Audio"]
     };
     let missing: Vec<_> = expected
         .into_iter()
