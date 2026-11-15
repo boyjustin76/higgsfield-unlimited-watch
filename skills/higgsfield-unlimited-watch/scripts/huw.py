@@ -204,7 +204,8 @@ def one(nodes, predicate, label):
 
 
 def disabled(node):
-    return "disabled" in node.attrs or node.attrs.get("aria-disabled") == "true"
+    return ("disabled" in node.attrs or "data-disabled" in node.attrs
+            or node.attrs.get("aria-disabled") == "true")
 
 
 def form_state(html):
@@ -216,8 +217,16 @@ def form_state(html):
                  n.attrs.get("aria-label") in ("Unlimited mode", "Unlimited 모드"), "Unlimited")
     submit = one(nodes, lambda n: n.tag == "button" and n.attrs.get("type") == "submit", "submit")
     model = one(nodes, lambda n: n.attrs.get("data-model-select-trigger") == "true", "model")
-    settings = {n.attrs.get("aria-label", "unknown"): n.text() for n in nodes
-                if "data-form-kit-setting-button" in n.attrs}
+    settings = {}
+    expected = ["Duration", "Ratio", "Quality", "Bitrate", "Audio"]
+    for n in nodes:
+        key = n.attrs.get("aria-label", "unknown")
+        if ("data-form-kit-setting-button" in n.attrs or
+                (n.tag == "button" and key in expected + ["Resolution", "Aspect ratio"])):
+            if key in settings:
+                raise GuardError("ambiguous setting key")
+            settings[key] = n.text()
+    missing = [key for key in expected if not settings.get(key)]
     refs = [x for n in nodes if n.attrs.get("data-tour-anchor") == "tour-video-reference"
             for x in n.walk() if x.tag == "img"]
     label = re.sub(r"\s+", "", submit.text())
@@ -227,6 +236,7 @@ def form_state(html):
         "unlimited": switch.attrs.get("aria-checked"), "switch_disabled": disabled(switch),
         "submit_label": submit.text(), "submit_disabled": disabled(submit),
         "unlimited_verified": ready, "model": model.text(), "settings": settings,
+        "settings_complete": not missing, "missing_settings": missing,
         "prompt_sha256": digest(prompt_text(prompt)), "prompt_length": len(prompt_text(prompt)),
         "reference_count": len(refs),
     }
@@ -234,9 +244,17 @@ def form_state(html):
 
 def history_state(html, asset_id):
     nodes = [n for n in DOM(html).root.walk() if n.attrs.get("data-asset-id") == asset_id]
-    if len(nodes) != 1:
+    def nested(node):
+        parent = node.parent
+        while parent:
+            if parent.attrs.get("data-asset-id") == asset_id:
+                return True
+            parent = parent.parent
+        return False
+    roots = [n for n in nodes if not nested(n)]
+    if len(roots) != 1 or any(n.attrs.get("data-job-status") != roots[0].attrs.get("data-job-status") for n in nodes):
         return {"state": "unknown", "reason": "asset_missing_or_ambiguous", "matches": len(nodes)}
-    node = nodes[0]
+    node = roots[0]
     raw = node.attrs.get("data-job-status")
     video = any(n.tag == "video" for n in node.walk())
     state = ("pending" if raw in PENDING else "failed" if raw in FAILED else
@@ -288,9 +306,29 @@ class Browser:
 
     def inspect(self):
         self.check_origin()
-        for key in SELECTORS:
-            self.unique(key)
-        return form_state(self.action("get", "html", FORM))
+        try:
+            for key in SELECTORS:
+                self.unique(key)
+            return form_state(self.action("get", "html", FORM))
+        except GuardError as exc:
+            if not str(exc).startswith("selector drift:"):
+                raise
+            # Collect only readiness/login booleans; never return page text.
+            try:
+                evidence = json.loads(self.action("eval", "JSON.stringify({ready:document.readyState,login:Array.from(document.querySelectorAll('button,a')).some(n=>/^(Login|Log in|Sign in|로그인)$/.test(n.innerText.trim()))})"))
+            except (GuardError, ValueError):
+                evidence = {}
+            if not isinstance(evidence, dict):
+                evidence = {}
+            if evidence.get("ready") == "loading":
+                code = "page_not_ready"
+            elif evidence.get("login") is True:
+                code = "signed_out"
+            elif evidence.get("ready") == "complete":
+                code = "missing_control" if "found 0" in str(exc) else "selector_drift"
+            else:
+                code = "unknown"
+            raise GuardError(f"{code}: required creation controls unavailable; no account entitlement inferred") from None
 
     def ensure_unlimited(self):
         state = self.inspect()
@@ -444,7 +482,14 @@ def relay(directory, hc, terminal, *, expected_app, runner=subprocess.run):
             sent = runner([hc, "send", terminal, message], capture_output=True, text=True,
                           encoding="utf-8", timeout=30, shell=False,
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            result["state"] = "accepted" if sent.returncode == 0 else "delivery_unknown"
+            accepted = sent.returncode == 0
+            try:
+                reply = json.loads(sent.stdout)
+                if isinstance(reply, dict) and reply.get("started") is False:
+                    accepted = False
+            except ValueError:
+                pass  # Older hc versions can acknowledge with non-JSON stdout.
+            result["state"] = "accepted" if accepted else "delivery_unknown"
         except (OSError, subprocess.TimeoutExpired):
             result["state"] = "delivery_unknown"
         atomic_json(receipt, result)

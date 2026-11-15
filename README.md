@@ -1,96 +1,82 @@
 # Higgsfield Unlimited Watch
 
-**Let your AI agent handle your Higgsfield web Unlimited workflow. Let a local watcher do the waiting.**
+**Your AI agent submits the Higgsfield job. A local watcher waits — no LLM polling while it renders.**
 
 [![Tests](https://github.com/boyjustin76/higgsfield-unlimited-watch/actions/workflows/test.yml/badge.svg)](https://github.com/boyjustin76/higgsfield-unlimited-watch/actions/workflows/test.yml)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Status](https://img.shields.io/badge/status-experimental-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-A self-contained agent skill and dependency-free Python helper for eligible Higgsfield accounts. Check the actual Unlimited toggle and submit label, follow a result by its asset ID, and notify an active Herdr agent when it finishes—without repeated LLM status checks.
+- Verifies the actual Unlimited toggle + submit label (a badge alone does not count).
+- Follows one result by `data-asset-id`, writes a completion event, optionally notifies your agent.
+- No exported cookies/tokens, no LLM calls while waiting. **Rust is primary; dependency-free Python is retained.**
 
-**Experimental v0.1.0a2.** Tested browser environment: Windows + WSL Ubuntu + terminal-browser. This project does not grant Unlimited access. Eligibility and limits belong to Higgsfield. [Verified scope and limitations →](docs/validation.md)
+> Try without an account: `python skills/higgsfield-unlimited-watch/scripts/huw.py demo`
+> Experimental Rust 0.2.0-dev / Python compatibility helper. Full live lifecycle of this revision is **not validated**; see [validation](docs/validation.md).
 
-## The problem
+`demo` needs no browser or Herdr. `inspect` needs terminal-browser, but no Herdr. The field-tested browser stack is Windows + WSL; portable core tests do not prove other live environments. The real 30-second GIF remains pending ([#6](https://github.com/boyjustin76/higgsfield-unlimited-watch/issues/6)).
 
-Your account may have a web Unlimited entitlement that your current generation integration cannot select. An agent can operate the website, but asking it to repeatedly inspect a long-running generation adds model calls and interrupts useful work.
-
-This skill separates the work: the agent prepares and submits an authorized web job; a local process waits; the agent receives a compact event and reviews the result.
-
-```mermaid
-flowchart LR
-    A[Agent prepares web form] --> B[Verify Unlimited]
-    B --> C[Agent submits one job]
-    C --> D[Local DOM watcher]
-    D --> E[Persist completion event]
-    E --> F[Notify active Herdr agent]
-```
-
-## Why this implementation?
-
-- **Checks the actual web controls.** A model badge is not an enabled Unlimited switch. Missing or ambiguous controls stop the helper.
-- **Waits locally.** No LLM client or API key in the polling loop. Notification and resumed agent work still use the host's resources.
-- **Follows an asset, not a snapshot ref.** Uses `data-asset-id` and `data-job-status`; unknown states remain unknown.
-- **Keeps authentication in the browser.** No exported cookies, Clerk tokens, or private generation API calls in this helper.
-- **Makes recovery explicit.** Persistent events, exclusive monitor locks and send receipts; no blind generation retry.
-
-Other projects already offer Unlimited APIs, MCP servers, queues and polling. We focus on this visible-web workflow and conservative recovery. [Alternatives and research →](docs/competitors.md)
-
-## Try it without an account
+## Start offline
 
 ```bash
 git clone https://github.com/boyjustin76/higgsfield-unlimited-watch.git
 cd higgsfield-unlimited-watch
-python skills/higgsfield-unlimited-watch/scripts/huw.py demo
+cargo build --locked --release
+cargo install --path . --locked
+huw demo
+```
+
+Installing adds `huw` to Cargo's bin directory; ensure it is on PATH. Without installing, use `target/release/huw` (`.\target\release\huw.exe` on Windows). Python 3.10+ stays at `skills/higgsfield-unlimited-watch/scripts/huw.py`, requires no pip dependencies, and is not automatically replaced.
+
+The demo is **synthetic**: virtual clock, real classifier/event persistence, no browser or generation.
+
+```bash
 python -m unittest discover -s tests -v
+cargo test --locked
+python tests/compare_demo.py --rust target/release/huw
 ```
 
-The demo is **synthetic**, completes immediately with a virtual clock and never opens a browser or generates media. It exercises the same DOM classifier and event persistence used by the watcher.
+Use `target/release/huw.exe` for comparison on Windows. [Compatibility matrix](RUST_PORT.md).
 
-## Use your signed-in browser
+## Use a signed-in browser
 
-1. Have Python 3.10+ and a signed-in terminal-browser session ready. [First-time Windows setup →](skills/higgsfield-unlimited-watch/references/setup.md)
-2. Copy `config.example.json` to `config.local.json`. Set your binary path and the browser/tab IDs from `terminal-browser ls --all`.
-3. Inspect the form:
+1. Follow [setup](skills/higgsfield-unlimited-watch/references/setup.md). Copy `config.example.json` to `config.local.json`; select the actual executable/browser/tab from `terminal-browser ls --all`.
+2. Run `huw inspect --config config.local.json`. `unlimited_verified` covers only switch/submit controls. Inspect `settings_complete` / `missing_settings` and separately reconcile every requested setting and reference.
+3. Follow [the skill](skills/higgsfield-unlimited-watch/SKILL.md) for one authorized job. **Every new tab, navigation and setting change requires fresh verification.** Never inherit another tab's ON state.
+4. After the separately authorized agent submits, bind the new result's exact UUID:
 
 ```bash
-python skills/higgsfield-unlimited-watch/scripts/huw.py inspect --config config.local.json
+huw watch --config config.local.json --asset-id RESULT_UUID --state-dir local/job-001
 ```
 
-4. Ask your agent to use [the skill](skills/higgsfield-unlimited-watch/SKILL.md) for one authorized web job. After identifying the **new result asset UUID**, start:
+No helper command submits generation. Unknown/timeout is not remote failure and never authorizes resubmission. Keep the browser open on the relevant history. A precheck guarantees neither billing nor creative quality.
 
-```bash
-python skills/higgsfield-unlimited-watch/scripts/huw.py watch \
-  --config config.local.json --asset-id RESULT_UUID --state-dir local/job-001
-```
-
-Use a single line in PowerShell. Run the monitor in a background terminal; optional `--hc HC_EXECUTABLE --notify-terminal AGENT_TERMINAL_ID --notify-app copilot` connects an active Herdr session. Select `codex` instead when that is the intended app; both target flags are required. [Herdr setup →](skills/higgsfield-unlimited-watch/references/setup.md#herdr-background-monitor)
-
-The helper **does not click Generate** or enforce an account-wide queue. The skill directs the agent to verify the complete settings, keep one job active and submit once. A UI check is a point-in-time observation, not a billing guarantee.
-
-## Install the skill
-
-Copy the entire `skills/higgsfield-unlimited-watch/` directory into your agent's skill directory—not just `SKILL.md`. For Codex, a typical destination is `~/.codex/skills/higgsfield-unlimited-watch/`; use your host's configured location if different. Alternatively, tell your agent to read the skill directly from this checkout.
-
-No MCP server installation is required for this version. A future MCP wrapper could expose the same browser workflow; MCP itself is not the limitation. Existing service integrations may offer different entitlement paths.
+For an active Herdr-hosted Codex/Copilot agent, add `--hc HC_EXECUTABLE --notify-terminal AGENT_TERMINAL_ID --notify-app codex`. Address and app must match. Without Herdr, consume `event.json` through your host's supported callback; the file alone does not wake an agent.
 
 ## Commands
 
-| Command | Effect |
-|---|---|
-| `inspect` | Read compact form state, no page mutation |
-| `ensure-unlimited` | Enable the switch if OFF, then verify switch + submit label |
-| `set-prompt --file FILE` | Clear, fill and verify the prompt; no submission |
-| `watch` | Follow one exact result; write state transitions and final event |
-| `relay` | Attempt one Herdr notification for an existing event |
-| `demo` | Offline synthetic lifecycle |
+| Command | Rust | Retained Python |
+|---|---|---|
+| `inspect`, `ensure-unlimited`, `set-prompt` | Video and image | Video |
+| `watch`, `relay`, `demo`, `--version` | Supported | Supported |
+| `observe` | One read-only result observation | Use watcher |
+| `ensure --expected FILE` | Read-only prepared-image comparison | Not available |
+| `supervise` | Bounded restart of own watcher child | Manual restart |
+| `--relay-wait SECONDS` | Bounded wait for working recipient | Explicit relay when ready |
 
-## Limits worth knowing
+Ordinary `watch` is **not** a process watchdog. Rust `supervise` resumes the same asset/directory, never generation or the browser. It preserves uncertain send receipts and records exhausted restarts in `supervisor.json`. Read [recovery](skills/higgsfield-unlimited-watch/references/recovery.md).
 
-The browser must remain open and show the relevant history card. Site redesigns, virtualized history and navigation can hide the target. Pending/failure enum variants are partly synthetic-test coverage. A fresh full generation lifecycle and second-machine installation remain release-validation tasks. No closed-app wake or exactly-once remote delivery is promised.
+## Install the agent skill
 
-See [recovery](skills/higgsfield-unlimited-watch/references/recovery.md), [validation](docs/validation.md), [product decisions](docs/strategy.md), and [contributing](CONTRIBUTING.md).
+Copy the entire `skills/higgsfield-unlimited-watch/` folder to your host's skill directory (for example `~/.codex/skills/higgsfield-unlimited-watch/`), or point the agent at this checkout. A skill-only copy includes Python; build/install Rust separately. No MCP server is required.
 
-## Credits
+## Unlimited availability
 
-Built on [terminal-browser](https://github.com/zenbu-labs/terminal-browser). Herdr integration uses the installed herdr-core `hc` command. Independent community project; not affiliated with Higgsfield. Original implementation, licensed under [MIT](LICENSE).
+Checked 2026-11-15: [official help](https://higgsfield.ai/creator-hub/help-center/credits/what-are-unlimited-models-and-which-plans-include-them) describes model-specific, time-limited Unlimited access on Higgsfield's website. Consult [pricing](https://higgsfield.ai/pricing) and your signed-in account for models, duration and settings. This project grants no entitlement and promises no account eligibility or zero-cost generation. Local browser automation is distinct from paid API/MCP generation.
+
+## Limits and credits
+
+Navigation/virtualization can hide history. Nested wrappers require one same-ID root and agreeing statuses; conflicting or separate cards remain unknown. Video completion requires a descendant video and two consecutive observations; image mode additionally requires a loaded result image. Neither verifies creative quality.
+
+[Validation](docs/validation.md) · [Launch checklist](docs/release-checklist.md) · [Contributing](CONTRIBUTING.md)
+
+Built on [terminal-browser](https://github.com/zenbu-labs/terminal-browser); optional Herdr notifications use `hc`. Independent community project, not affiliated with Higgsfield. MIT licensed.

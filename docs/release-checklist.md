@@ -1,26 +1,32 @@
-# Experimental release handoff
+# Launch preparation
 
-Published at [boyjustin76/higgsfield-unlimited-watch](https://github.com/boyjustin76/higgsfield-unlimited-watch). No credentials are bundled. The initial publication instructions below are retained for reproducibility; do not rerun repository creation on this existing repository.
+Rust is primary and Python remains available. This is an experimental development update, not a stable release or a marketing launch.
 
-- [x] Competitor and official-entitlement research, with source links and caveats
-- [x] Self-contained skill and standard-library CLI
-- [x] Synthetic behavior tests and offline demo
-- [x] Read-only live form + existing completed asset smoke test
-- [x] Synthetic event delivered through real herdr-core relay
-- [x] Public tree separated from local sessions, prompts and result IDs
-- [x] GitHub authentication and repository creation/push
-- [x] Observe hosted CI results after push (Windows/Ubuntu, Python 3.10/3.12)
-- [ ] Personal-media live lifecycle and English demo
-- [ ] Second-machine install verification
+- [x] README first screen: purpose, account-free demo, Rust/Python placement, limits.
+- [x] Explicitly distinguish terminal-browser from optional Herdr notifications.
+- [x] Add Windows/Ubuntu Rust tests and Python/Rust comparison to CI.
+- [x] Preserve original 45 Python scenarios and add issue regressions.
+- [x] Separate current code tests from historical live observations.
+- [ ] Record and review the 30-second demo GIF below.
+- [ ] Validate this revision's live lifecycle with separately authorized, owned media.
+- [ ] Check all hosted CI results immediately before release.
+- [ ] Publish a release note that retains the limitation: **this revision's full live lifecycle and suspend/recovery remain unvalidated**.
+- [ ] Owner decides launch date and authorizes each external post.
 
-Owner workflow from a new PowerShell terminal:
+## 30-second GIF storyboard (pending, issue #6)
 
-```powershell
-gh auth login --web
-cd path\to\higgsfield-unlimited-watch
-& .\scripts\publish.ps1
-```
+Use only owned sample media and a sanitized terminal. No private paths, actual result IDs, account details, or production captures. Do not label synthetic frames as live.
 
-The publishing script verifies account identity, requires a clean committed tree, and refuses an existing origin rather than guessing. If your execution policy blocks scripts, use the equivalent reviewed `gh repo create ... --public --source . --remote origin --push` command directly; do not change system policy just for this project.
+1. 0–5s: offline `huw demo`; visible subtitle “Synthetic / no account needed”.
+2. 5–12s: separately authorized read-only `inspect` capture; show toggle/submit verification and incomplete settings if any.
+3. 12–22s: a separately authorized known result's `watch` completion/event output; substitute only clearly labelled example identifiers in the published edit.
+4. 22–30s: “No LLM polling while waiting. No cookies exported. Browser must stay open.” Include the unvalidated-scope caption.
 
-After publication, inspect `gh run list` and the actual workflow result before adding a release tag. The source version is `0.1.0a2`; no stable-release claim is intended. Do not upload local/ or config.local.json. A release demo should use personal assets with permission, never company material.
+Save the approved recording as docs/demo.gif and embed it under README badges. A script/storyboard is not a completed recording. No generation or capture is required to run the offline demo.
+
+## Optional launch copy (draft only)
+
+Show HN title: “Show HN: Let your agent stop polling Higgsfield while a video renders”.
+Body should include the waiting problem, offline demo/build/inspect commands, and the live-validation/browser-open limits. Adapt for r/ClaudeCode or r/AI_Agents (agent skill) and X only with separate posting authorization. Coordinating posts is an owner choice; no trending or star-growth result is promised.
+
+The initial scripts/publish.ps1 is for creating a repository from scratch; do not rerun it against this existing project. Never publish local configs, prompts, browser profiles or state directories.

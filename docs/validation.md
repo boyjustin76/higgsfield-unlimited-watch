@@ -1,32 +1,46 @@
-# Validation record
+# Validation and limits
 
-Date: 2026-11-07. Experimental release; this is a capability matrix, not a claim that the complete user journey is production-ready.
+## Current update (2026-11-15)
 
-| Capability | Evidence | Limits |
+This update performs **offline tests only**, not fresh live generation or account verification.
+
+| Area | Evidence | Limit |
 |---|---|---|
-| Unit/behavior tests | v0.1.0a2: 45 tests on a real WSL Linux filesystem pass; Windows passes 40 and skips 5 POSIX-only tests. [Hosted CI](https://github.com/boyjustin76/higgsfield-unlimited-watch/actions/workflows/test.yml) runs Windows/Ubuntu × Python 3.10/3.12 | Unit tests and synthetic demo do not establish live cross-platform browser support |
-| Offline demo | CLI runs synthetic processing → completed → completed through the actual parser/persistence | No real generation or browser involved |
-| Live form inspection | New helper verified actual Unlimited switch=true, enabled Unlimited submit label, prompt hash, one reference | Read-only; no credit/billing audit |
-| Stable DOM identity | Actual data-asset-id/data-job-status observed in signed-in browser | App attributes may change; virtualized nodes may disappear |
-| Live completed asset watch | New helper confirmed a real completed asset in two polls (5-second interval) and persisted its event | Existing completed asset only; no new generation |
-| Prompt replacement and toggle change | Original internal workflow exercised clear/fill and toggle; new helper has mocks | New helper mutation path has not yet been field-tested |
-| Pending/failure/timeout recovery | Synthetic tests | Pending/failure enum coverage not established live for this version |
-| Herdr notification | New relay delivered a synthetic event to an active Copilot terminal; receiver acknowledged it | Synthetic event, live transport; no closed-app wake guarantee |
-| Second machine | Not tested | Office setup remains pending |
-| Personal-media English demo | Deferred at user's request | No company footage is shipped |
-| Skill packaging | Bundled skill validator passed in Python UTF-8 mode | Behavioral installation on a second host remains untested |
-| Independent review | Copilot statically reviewed published commit 3cc2c39 and identified three follow-ups, addressed in v0.1.0a2 | Fixes have regression tests; the reviewer did not run the tests or re-review the fixes |
+| Original Python baseline | Original 45 scenarios retained; Windows skips 5 POSIX tests | Windows cannot verify Unix permission semantics |
+| Python issue regressions | Added settings/diagnostic/nested-card/new-tab/relay tests | Sanitized synthetic DOM |
+| Rust | Unit/integration suites, image and recovery tests | Local child failure is not live browser recovery |
+| Cross-language comparison | tests/compare_demo.py: 11 inspect/diagnostic CLI fixtures plus all demo event/state/journal fields; timestamps excluded | Not exhaustive equivalence; Rust extensions documented separately |
+| Hosted CI | [Windows/Ubuntu Python and Rust jobs](https://github.com/boyjustin76/higgsfield-unlimited-watch/actions/workflows/test.yml) | Refer to the run for the exact commit; a workflow definition alone is not a pass |
+| Current Unlimited documentation | Official help/pricing consulted on 2026-11-15 | No account's eligibility, model list, expiry or billing verified |
+| 30-second demo GIF | Storyboard in release-checklist.md | Recording pending (#6) |
 
-v0.1.0a2 regression coverage: CLI prompt-file roundtrips preserve leading/trailing spaces, tabs, blank lines and boundary newlines across literal/br/block DOM renderings; expected recipient app/address mismatch blocks sends; POSIX permissions are checked under umask022 including temp-file cleanup, journal writes and refusal to alter unrelated paths. The browser was closed during these fixes, so new multiline behavior was not revalidated on a live Higgsfield editor.
+Run locally:
 
-Tested browser stack: Windows, WSL2 Ubuntu, terminal-browser 0.15.3, Noctty 1.3.135. Agent coordination in the current desktop app uses herdr-core `hc`, not the older `herdr` multiplexer. Native Linux transport is configurable but not field-validated; macOS/browser adapters are not advertised as supported.
+```text
+python -m unittest discover -s tests -v
+cargo fmt --check
+cargo test --locked
+cargo build --locked --release
+python tests/compare_demo.py --rust target/release/huw
+```
 
-## Guarantees are deliberately bounded
+On Windows use huw.exe for the comparison and Python -X utf8 for non-ASCII terminal output. CI runs Unix tests on its native filesystem, not a WSL Windows mount.
 
-- A precheck reads a moment in time. It does not atomically gate an independently performed Generate click or guarantee billing.
-- Completion requires a known asset ID, recognized terminal DOM state, video element and repeated observation. It does not verify playback or creative quality.
-- File locks/events prevent duplicate local monitoring/send attempts only within the same state directory and tested local failure model. Different directories or machines are not coordinated.
-- Relay acceptance is not exactly-once receipt or execution. Crashes can lose a notification; ambiguous sends are not automatically retried.
-- The watch loop contains zero LLM calls by construction. No empirical token-savings percentage is claimed.
+## Historical field reports, not revalidated by this update
 
-Company data and private session evidence stay outside the public repository. Synthetic fixtures deliberately use reserved example UUIDs.
+Issues [#1](https://github.com/boyjustin76/higgsfield-unlimited-watch/issues/1), [#2](https://github.com/boyjustin76/higgsfield-unlimited-watch/issues/2), [#3](https://github.com/boyjustin76/higgsfield-unlimited-watch/issues/3), and [#4](https://github.com/boyjustin76/higgsfield-unlimited-watch/issues/4) record earlier second-PC setup/read-only checks and one separately authorized generation/completion/relay observation. Those reports motivated these fixes. They do not establish a fresh full lifecycle for this Rust revision.
+
+The previously tested browser environment was Windows + WSL Ubuntu + terminal-browser. Native Linux/macOS browser integration, general-agent notifications, minimized/suspend behavior, live crash recovery, billing and output quality remain unverified here.
+
+## Bounded guarantees
+
+- A UI precheck is a point-in-time observation, not an atomic submission guard or billing guarantee.
+- Settings completeness means required nonempty labels were observed, not that values match the user's request. Unknown/renamed controls remain missing.
+- Diagnostic codes use explicit readiness/login evidence. Missing controls do not prove entitlement loss or a site redesign.
+- Video completion requires exact asset identity, agreeing DOM status, a descendant video and consecutive confirmation. Image completion also requires loaded dimensions. Neither verifies playback/creative quality.
+- Locks/receipts coordinate one local state directory. They do not enforce account-wide concurrency or exactly-once remote processing.
+- Ordinary watch does not restart itself. Opt-in Rust supervise has bounded local-child recovery and does not restart the browser, machine, or generation.
+- Accepted relay means transport acceptance. Attempting/delivery_unknown receipts block automatic retries.
+- The watch loop has zero LLM calls by construction. No empirical savings percentage is claimed.
+
+Do not attach private sessions, configs, raw DOM, credentials, real asset identifiers or production media to public issues.

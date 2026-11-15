@@ -1,6 +1,8 @@
 # Setup and commands
 
-The skill folder is self-contained. Paths below assume a repository checkout; after installing only the skill, replace `skills/higgsfield-unlimited-watch` with its actual location.
+Rust is the primary executable. From a repository checkout, run `cargo build --locked --release` then `cargo install --path . --locked` using stable Rust. Run `huw --help` after Cargo's bin directory is on PATH, or use `target/release/huw` (`target/release/huw.exe` on Windows). This does not replace any existing shared installation.
+
+The skill folder alone contains the retained Python implementation. The Python commands below remain valid for video workflows; substitute `huw` for `python skills/higgsfield-unlimited-watch/scripts/huw.py` to use Rust. After installing only the skill, use its actual folder path. Neither `demo` nor `inspect` requires Herdr (inspect still requires terminal-browser). Python non-ASCII output on Windows pipes should use `python -X utf8` ([Python documentation](https://docs.python.org/3/using/cmdline.html#cmdoption-X)).
 
 ## Existing browser setup
 
@@ -60,7 +62,21 @@ Persist the PATH export once in `~/.bashrc`. Package names are from the tested U
 terminal-browser open 'https://higgsfield.ai/ai/video?model=seedance_2_0'
 ```
 
-Sign in directly. Unsupported terminal means missing Kitty graphics support; Noctty worked. Restart the browser after font installation if Korean text remains broken. Windows Chrome and the WSL browser do not automatically share authentication. See [terminal-browser](https://github.com/zenbu-labs/terminal-browser) for current installer support.
+Sign in directly. An unsupported-terminal warning from a non-interactive command does not establish a failure in the visible graphical terminal. Check the actual Noctty session separately. Restart the browser after font installation if Korean text remains broken. Windows Chrome and the WSL browser do not automatically share authentication. See [terminal-browser](https://github.com/zenbu-labs/terminal-browser) for current installer support.
+
+## Blank page / TLS diagnosis
+
+1. Check whether the intended browser process/session is running. Then distinguish a page load/TLS error from terminal graphics support; do not reinstall based on a blank display alone.
+2. Inspect locally for `ERR_CERT_AUTHORITY_INVALID` or curl error 60. Windows trust does not automatically establish Ubuntu or Chromium trust. Do not publish raw logs, certificates or fingerprints.
+3. Use only an administrator-approved CA. Follow [Ubuntu's trust-store instructions](https://ubuntu.com/server/docs/how-to/security/install-a-root-ca-certificate-in-the-trust-store/): approved PEM certificate with .crt extension, system CA location and update-ca-certificates. Never disable certificate verification.
+4. Chromium also uses NSS. [Official Chromium documentation](https://chromium.googlesource.com/chromium/src/+/main/docs/linux/cert_management.md) specifies `$HOME/.local/share/pki/nssdb` since M146, but uses an existing `$HOME/.pki/nssdb` instead. Determine the actual browser user's DB before applying the documented certutil instructions; do not create/import into a guessed DB.
+5. After approved trust changes, restart the affected browser and confirm HTTPS page loading. A running process or successful curl alone is insufficient. Graphics warnings from a headless command are a separate diagnostic.
+
+## Form diagnostics and new tabs
+
+The helper reports signed_out only with explicit login evidence during a failed control check; loading becomes page_not_ready. A complete page with absent controls is missing_control, ambiguous controls selector_drift, insufficient evidence unknown. These codes do not infer paid entitlement. No automatic login or cookie transfer is provided.
+
+Inspect each new tab/navigation/settings change independently. Recheck switch, submit label/enabled state and all intended settings immediately before a separately authorized submission. Empty/unknown settings remain missing, even if `unlimited_verified` is true. See [official availability guidance](https://higgsfield.ai/creator-hub/help-center/credits/what-are-unlimited-models-and-which-plans-include-them); no account eligibility is assumed.
 
 ## Herdr background monitor
 
