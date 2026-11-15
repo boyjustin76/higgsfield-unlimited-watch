@@ -101,6 +101,75 @@ fn existing_event_survives_supervision_without_browser_calls() {
         "finished"
     );
 }
+#[test]
+fn bookkeeping_failure_does_not_leave_watcher_running() {
+    let t = tempfile::tempdir().unwrap();
+    let d = t.path().join("job");
+    storage::private_dir(&d).unwrap();
+    std::fs::create_dir(d.join("supervisor.json")).unwrap();
+    let config = t.path().join("config.json");
+    std::fs::write(
+        &config,
+        r#"{"command":["nonexistent-offline-fixture"],"browser":"synthetic"}"#,
+    )
+    .unwrap();
+    let result = std::process::Command::new(env!("CARGO_BIN_EXE_huw"))
+        .args(["supervise", "--config"])
+        .arg(config)
+        .args(["--state-dir"])
+        .arg(&d)
+        .args([
+            "--asset-id",
+            "00000000-0000-4000-8000-000000000001",
+            "--timeout",
+            "1",
+            "--interval",
+            "5",
+            "--max-restarts",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!result.status.success());
+    std::thread::sleep(std::time::Duration::from_secs(6));
+    assert!(
+        !d.join("event.json").exists(),
+        "orphan watcher continued after bookkeeping failure"
+    );
+    assert!(!d.join("supervisor.lock").exists());
+}
+
+#[test]
+fn uppercase_asset_is_normalized_before_supervision() {
+    let t = tempfile::tempdir().unwrap();
+    let d = t.path().join("job");
+    let aid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    storage::atomic(
+        &d.join("event.json"),
+        &json!({"asset_id":aid,"state":"completed"}),
+    )
+    .unwrap();
+    storage::atomic(&d.join("target.json"), &json!({"asset_id":aid})).unwrap();
+    let config = t.path().join("config.json");
+    std::fs::write(
+        &config,
+        r#"{"command":["must-not-launch"],"browser":"synthetic"}"#,
+    )
+    .unwrap();
+    let result = std::process::Command::new(env!("CARGO_BIN_EXE_huw"))
+        .args(["supervise", "--config"])
+        .arg(config)
+        .args(["--state-dir"])
+        .arg(&d)
+        .args(["--asset-id", &aid.to_uppercase(), "--max-restarts", "0"])
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+}
 
 struct RefusedSend(std::cell::Cell<usize>);
 impl Runner for RefusedSend {
@@ -127,6 +196,19 @@ fn refused_send_receipt_never_retried() {
     assert_eq!(first["state"], "delivery_unknown");
     assert_eq!(
         relay::relay(&d, "hc", "t1", "codex", &runner).unwrap(),
+        first
+    );
+    assert_eq!(runner.0.get(), 2);
+    assert_eq!(
+        relay::deferred(
+            &d,
+            "must-not-contact-recipient",
+            "t1",
+            "codex",
+            &runner,
+            1.0
+        )
+        .unwrap(),
         first
     );
     assert_eq!(runner.0.get(), 2);

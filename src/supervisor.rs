@@ -1,8 +1,12 @@
-use crate::{cli::WatchArgs, dom, monitor, relay, storage, transport::Process};
+use crate::{
+    cli::WatchArgs,
+    dom, monitor, relay, storage,
+    transport::{OwnedChild, Process},
+};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
@@ -19,8 +23,21 @@ pub fn recover_owned_lock(dir: &Path, pid: u32, token: &str) -> Result<()> {
     std::fs::remove_file(p)?;
     Ok(())
 }
-pub fn supervise(a: WatchArgs, max: u32, backoff: f64, cancel: &AtomicBool) -> Result<Value> {
-    monitor::asset(&a.asset_id)?;
+struct WatchedChild {
+    child: OwnedChild,
+    directory: PathBuf,
+    token: String,
+}
+impl Drop for WatchedChild {
+    fn drop(&mut self) {
+        let pid = self.child.id();
+        if self.child.terminate().is_ok() {
+            let _ = recover_owned_lock(&self.directory, pid, &self.token);
+        }
+    }
+}
+pub fn supervise(mut a: WatchArgs, max: u32, backoff: f64, cancel: &AtomicBool) -> Result<Value> {
+    a.asset_id = monitor::asset(&a.asset_id)?;
     if max > 10 || !backoff.is_finite() || !(1.0..=300.0).contains(&backoff) {
         bail!("restart budget <=10 and backoff 1..300 required");
     }
@@ -57,7 +74,12 @@ pub fn supervise(a: WatchArgs, max: u32, backoff: f64, cancel: &AtomicBool) -> R
             use std::os::windows::process::CommandExt;
             c.creation_flags(0x08000000);
         }
-        let mut child = c.spawn()?;
+        let mut owned = WatchedChild {
+            child: OwnedChild(c.spawn()?),
+            directory: a.state_dir.clone(),
+            token: token.clone(),
+        };
+        let child = &mut owned.child;
         let pid = child.id();
         storage::atomic(
             &a.state_dir.join("supervisor.json"),

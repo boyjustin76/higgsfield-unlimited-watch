@@ -34,6 +34,8 @@ The supervisor holds supervisor.lock and starts its own watch child. Only failed
 
 Automatic monitor.lock cleanup requires a spawned-and-reaped child handle plus matching PID and supervisor token. Foreign/legacy locks require manual reconciliation; a PID alone is insufficient. The supervisor itself is not installed as an OS service and is not restarted automatically. No browser/machine restart or generation resubmission occurs.
 
+Spawned watcher children are killed/reaped if supervisor bookkeeping fails. Transport commands must finish their own output before exiting: Rust captures a snapshot through an anonymous temporary file, avoiding unbounded pipe EOF waits from descendants. The snapshot read limit is 16 MiB; it is not a hard disk-usage quota during the command. Asynchronous descendant output is unsupported; only the directly spawned helper is terminated on timeout, not an existing browser session.
+
 Rust `watch`, `relay`, and `supervise` support `--relay-wait SECONDS` (default 0). This defers delivery only while the exact recipient/app is live and working. Blocked/error/exited/wrong-app stops immediately; expiration leaves the event for manual relay. Python retains immediate readiness checks and manual recovery. No force-send is used.
 
 ## Relay recovery

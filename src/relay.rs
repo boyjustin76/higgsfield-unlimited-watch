@@ -13,6 +13,15 @@ pub fn deferred(
     if wait == 0.0 {
         return relay(dir, hc, target, app, runner);
     }
+    // Replay receipt semantics precede recipient readiness, including uncertain
+    // sends. Recheck under the normal relay lock again before any new send.
+    let (_, _, _, path) = binding(dir, target, app)?;
+    {
+        let _lock = storage::Lock::acquire(dir, "relay.lock")?;
+        if let Some(saved) = saved_receipt(&path, app)? {
+            return Ok(saved);
+        }
+    }
     let start = std::time::Instant::now();
     loop {
         let r = runner.run(&[hc.into(), "get".into(), target.into()], 10.0)?;
@@ -49,8 +58,8 @@ pub fn deferred(
 }
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
-use std::path::Path;
-pub fn relay(dir: &Path, hc: &str, target: &str, app: &str, runner: &dyn Runner) -> Result<Value> {
+use std::path::{Path, PathBuf};
+fn binding(dir: &Path, target: &str, app: &str) -> Result<(Value, String, String, PathBuf)> {
     if !target.starts_with('t')
         || target.len() < 2
         || !target[1..]
@@ -79,13 +88,24 @@ pub fn relay(dir: &Path, hc: &str, target: &str, app: &str, runner: &dyn Runner)
         bail!("invalid event identity");
     }
     let path = dir.join(format!("relay-{target}-{id}.json"));
-    let _lock = storage::Lock::acquire(dir, "relay.lock")?;
+    let id = id.to_owned();
+    Ok((event, aid, id, path))
+}
+fn saved_receipt(path: &Path, app: &str) -> Result<Option<Value>> {
     if path.exists() {
-        let v = storage::read(&path)?;
+        let v = storage::read(path)?;
         if v["expected_app"] != app {
             bail!("different or legacy app binding; inspect before recovery");
         }
-        return Ok(v);
+        return Ok(Some(v));
+    }
+    Ok(None)
+}
+pub fn relay(dir: &Path, hc: &str, target: &str, app: &str, runner: &dyn Runner) -> Result<Value> {
+    let (event, aid, id, path) = binding(dir, target, app)?;
+    let _lock = storage::Lock::acquire(dir, "relay.lock")?;
+    if let Some(saved) = saved_receipt(&path, app)? {
+        return Ok(saved);
     }
     let r = runner.run(&[hc.into(), "get".into(), target.into()], 10.0)?;
     let info: Value = if r.success {

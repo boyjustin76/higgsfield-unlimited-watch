@@ -37,7 +37,9 @@ fn broad_directory_rejected_without_chmod() {
 #[test]
 fn tighten_only_targets() {
     let t = tempfile::tempdir().unwrap();
-    let d = t.path();
+    let private = t.path().join("job");
+    storage::private_dir(&private).unwrap();
+    let d = private.as_path();
     for name in ["event.json", "journal", "unrelated"] {
         fs::write(d.join(name), "{}").unwrap();
         fs::set_permissions(d.join(name), fs::Permissions::from_mode(0o644)).unwrap();
@@ -64,7 +66,9 @@ fn tighten_only_targets() {
 #[test]
 fn symlinks_rejected() {
     let t = tempfile::tempdir().unwrap();
-    let d = t.path();
+    let private = t.path().join("job");
+    storage::private_dir(&private).unwrap();
+    let d = private.as_path();
     symlink(d, d.join("link")).unwrap();
     assert!(storage::private_dir(&d.join("link")).is_err());
     fs::write(d.join("original"), "unchanged").unwrap();
@@ -75,7 +79,9 @@ fn symlinks_rejected() {
 #[test]
 fn atomic_failure_cleans_temp() {
     let t = tempfile::tempdir().unwrap();
-    let d = t.path();
+    let private = t.path().join("job");
+    storage::private_dir(&private).unwrap();
+    let d = private.as_path();
     fs::create_dir(d.join("event.json")).unwrap();
     assert!(storage::atomic(&d.join("event.json"), &json!({})).is_err());
     assert_eq!(fs::read_dir(d).unwrap().count(), 1);
