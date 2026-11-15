@@ -56,6 +56,81 @@ fn real_child_failure_bounded() {
     );
     assert!(!d.join("supervisor.lock").exists());
 }
+#[test]
+fn existing_event_survives_supervision_without_browser_calls() {
+    let t = tempfile::tempdir().unwrap();
+    let d = t.path().join("job");
+    let bin = env!("CARGO_BIN_EXE_huw");
+    assert!(
+        std::process::Command::new(bin)
+            .args(["demo", "--state-dir"])
+            .arg(&d)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let before = storage::read(&d.join("event.json")).unwrap();
+    let config = t.path().join("config.json");
+    std::fs::write(
+        &config,
+        r#"{"command":["must-not-launch-browser"],"browser":"synthetic"}"#,
+    )
+    .unwrap();
+    let result = std::process::Command::new(bin)
+        .args(["supervise", "--config"])
+        .arg(config)
+        .args(["--state-dir"])
+        .arg(&d)
+        .args([
+            "--asset-id",
+            "00000000-0000-4000-8000-000000000001",
+            "--max-restarts",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(before, storage::read(&d.join("event.json")).unwrap());
+    assert_eq!(
+        storage::read(&d.join("supervisor.json")).unwrap()["state"],
+        "finished"
+    );
+}
+
+struct RefusedSend(std::cell::Cell<usize>);
+impl Runner for RefusedSend {
+    fn run(&self, args: &[String], _: f64) -> Result<Output> {
+        self.0.set(self.0.get() + 1);
+        Ok(Output {
+            success: true,
+            stdout: if args[1] == "get" {
+                json!({"address":"t1","state":"live","status":{"app":"codex","state":"idle"}})
+                    .to_string()
+            } else {
+                json!({"started":false}).to_string()
+            },
+        })
+    }
+}
+#[test]
+fn refused_send_receipt_never_retried() {
+    let t = tempfile::tempdir().unwrap();
+    let d = t.path().join("job");
+    storage::atomic(&d.join("event.json"), &json!({"state":"completed","asset_id":"00000000-0000-4000-8000-000000000001","event_id":"aaaaaaaaaaaaaaaaaaaaaaaa"})).unwrap();
+    let runner = RefusedSend(std::cell::Cell::new(0));
+    let first = relay::relay(&d, "hc", "t1", "codex", &runner).unwrap();
+    assert_eq!(first["state"], "delivery_unknown");
+    assert_eq!(
+        relay::relay(&d, "hc", "t1", "codex", &runner).unwrap(),
+        first
+    );
+    assert_eq!(runner.0.get(), 2);
+}
 struct Deferred {
     calls: RefCell<Vec<String>>,
     working: RefCell<bool>,

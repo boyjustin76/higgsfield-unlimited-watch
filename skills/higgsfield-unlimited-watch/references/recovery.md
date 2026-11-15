@@ -18,15 +18,29 @@ Every job uses its own local state directory. Keep it outside Git or under ignor
 1. Read event.json first. A repeated watch returns an existing completed/failed event without polling again.
 2. After timeout/cancel, restore the correct browser/tab and visible history card. Update the local config if browser IDs changed. Reuse the same asset and directory with `--resume` to start a new monitoring attempt. Never regenerate as a monitoring repair.
 3. A stale monitor.lock deliberately blocks restart. Read its PID, confirm that process has stopped, then remove only that lock. Never remove a live process's lock. If a PID has been reused, inspect process identity and start time too.
-4. Missing or duplicate data-asset-id nodes remain unknown. The watcher never selects the first match. Virtualization can hide a result; bring the correct card into view before resuming.
+4. Missing, conflicting or separate duplicate data-asset-id cards remain unknown. Nested wrappers collapse only when there is one same-ID root and every status agrees. The watcher never blindly selects the first match. Virtualization can hide a result; bring the correct card into view before resuming.
 
 The file lock coordinates users of this state directory on one local filesystem. It does not enforce global account concurrency, deduplicate different directories or synchronize different computers.
+
+## Process supervision (Rust only, opt-in)
+
+Ordinary `watch` does not restart after process exit. If no event exists, inspect local process/lock/state before deliberately resuming the exact asset. A missing event is not failed generation. Suspend pauses local observation; resume may reveal unknown/timeout. Live suspend/crash recovery remains unverified.
+
+```text
+huw supervise --config config.local.json --asset-id RESULT_UUID --state-dir local/job-001 --max-restarts 2 --backoff 5
+```
+
+The supervisor holds supervisor.lock and starts its own watch child. Only failed local children are restarted (0–10 restarts, bounded exponential backoff capped at 300s), preserving the exact asset/directory and `--resume`. An existing terminal event is reused. Completed/failed/timeout/cancelled monitor events are not generation retries. supervisor.json records running/finished/restart_budget_exhausted; supervisor-transitions.jsonl records child exits. Exhaustion exits nonzero for the caller to handle.
+
+Automatic monitor.lock cleanup requires a spawned-and-reaped child handle plus matching PID and supervisor token. Foreign/legacy locks require manual reconciliation; a PID alone is insufficient. The supervisor itself is not installed as an OS service and is not restarted automatically. No browser/machine restart or generation resubmission occurs.
+
+Rust `watch`, `relay`, and `supervise` support `--relay-wait SECONDS` (default 0). This defers delivery only while the exact recipient/app is live and working. Blocked/error/exited/wrong-app stops immediately; expiration leaves the event for manual relay. Python retains immediate readiness checks and manual recovery. No force-send is used.
 
 ## Relay recovery
 
 The relay requires `--notify-app codex` or `--notify-app copilot` and verifies the returned terminal address and exact app identity, as well as live idle/done state. A different supported agent is still a mismatch. If not ready or mismatched, it stops without a send receipt; use `relay` once the correct agent is ready. The target can still change after the check; this is a point-in-time verification, not an atomic guarantee that the same process receives the subsequent send.
 
-The relay writes an `attempting` receipt before calling `hc send`. A successful exit becomes `accepted`; transport failure/timeout becomes `delivery_unknown`. Both receipts suppress automatic resend. A crash can leave `attempting` even if a message arrived. This is one attempted send, not exactly-once processing.
+The relay writes an `attempting` receipt before calling `hc send`. A successful exit becomes `accepted` unless the response explicitly reports `started=false`; that response or a transport failure/timeout becomes `delivery_unknown`. All existing receipts suppress automatic resend. A crash can leave `attempting` even if a message arrived. This is one attempted send, not exactly-once processing.
 
 Receipts record the expected app. A receipt from v0.1.0a1 has no app binding and is not automatically resent or silently migrated. Inspect the prior delivery and explicitly archive that receipt only when a resend is appropriate.
 

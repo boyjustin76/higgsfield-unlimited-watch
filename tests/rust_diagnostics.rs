@@ -49,7 +49,7 @@ fn explicit_login_distinct_from_drift() {
         let f = Sequence(RefCell::new(vec![
             "https://higgsfield.ai".into(),
             "0".into(),
-            login.to_string(),
+            serde_json::json!({"ready":"complete","login":login}).to_string(),
         ]));
         let e = Browser {
             config: config(),

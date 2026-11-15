@@ -76,14 +76,32 @@ impl Browser<'_> {
     }
     pub fn inspect(&self) -> Result<Value> {
         self.check_origin()?;
-        if self.action(&["get", "count", self.form()])? != "1" {
-            let login=self.action(&["eval","Array.from(document.querySelectorAll('button,a')).some(n=>/^(Login|Log in|Sign in|로그인)$/.test(n.innerText.trim()))"])?;
-            if login == "true" {
-                bail!("signed_out: explicit login control present; no automatic login");
-            }
-            bail!("selector drift: expected one creation form");
+        let count = self.action(&["get", "count", self.form()])?;
+        if count != "1" {
+            return self.diagnose(&format!("selector drift: expected 1, found {count}"));
         }
-        dom::form(&self.action(&["get", "html", self.form()])?, self.image())
+        match dom::form(&self.action(&["get", "html", self.form()])?, self.image()) {
+            Err(e) if e.to_string().starts_with("selector drift:") => self.diagnose(&e.to_string()),
+            result => result,
+        }
+    }
+    fn diagnose(&self, cause: &str) -> Result<Value> {
+        let evidence = self.action(&["eval", "JSON.stringify({ready:document.readyState,login:Array.from(document.querySelectorAll('button,a')).some(n=>/^(Login|Log in|Sign in|로그인)$/.test(n.innerText.trim()))})"])
+            .ok().and_then(|s| serde_json::from_str::<Value>(&s).ok()).unwrap_or(Value::Null);
+        let code = if evidence["ready"] == "loading" {
+            "page_not_ready"
+        } else if evidence["login"] == true {
+            "signed_out"
+        } else if evidence["ready"] == "complete" {
+            if cause.contains("found 0") {
+                "missing_control"
+            } else {
+                "selector_drift"
+            }
+        } else {
+            "unknown"
+        };
+        bail!("{code}: required creation controls unavailable; no account entitlement inferred")
     }
     pub fn ensure(&self) -> Result<Value> {
         let s = self.inspect()?;

@@ -120,7 +120,12 @@ pub fn form(html: &str, image: bool) -> Result<Value> {
     };
     let missing: Vec<_> = expected
         .into_iter()
-        .filter(|x| !settings.contains_key(*x))
+        .filter(|x| {
+            settings
+                .get(*x)
+                .and_then(Value::as_str)
+                .is_none_or(str::is_empty)
+        })
         .collect();
     let ptext = prompt(p);
     let mut out = json!({"unlimited":sw.attr("aria-checked"),"switch_disabled":disabled(sw),"submit_label":label,"submit_disabled":disabled(sub),"unlimited_verified":sw.attr("aria-checked")==Some("true")&&!disabled(sw)&&recognized&&!disabled(sub),"model":text(model),"settings":settings,"settings_complete":missing.is_empty(),"missing_settings":missing,"prompt_sha256":digest(&ptext),"prompt_length":ptext.chars().count(),"reference_count":refs.len()});

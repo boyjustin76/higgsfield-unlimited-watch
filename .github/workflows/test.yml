@@ -16,3 +16,24 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m unittest discover -s tests -v
       - run: python skills/higgsfield-unlimited-watch/scripts/huw.py demo
+  rust:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt
+      - run: cargo +stable fmt --check
+      - run: cargo +stable test --locked
+      - run: cargo +stable build --locked --release
+      - name: Compare Python and Rust (Unix)
+        if: runner.os != 'Windows'
+        run: python tests/compare_demo.py --rust target/release/huw
+      - name: Compare Python and Rust (Windows)
+        if: runner.os == 'Windows'
+        run: python tests/compare_demo.py --rust target/release/huw.exe
